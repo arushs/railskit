@@ -10,5 +10,6 @@ Rails.application.routes.draw do
 
   namespace :api do
     get "health", to: "health#show"
+    get "config", to: "config#show"
   end
 end

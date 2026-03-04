@@ -1,0 +1,104 @@
+# ============================================================================
+# RailsKit Configuration
+# ============================================================================
+# This single file drives your entire app. Edit it, restart, and you're done.
+# Every section has sensible defaults — only change what you need.
+#
+# Docs: https://railskit.dev/docs/config
+# ============================================================================
+
+# --- App Identity -----------------------------------------------------------
+app:
+  name: "MyApp"                          # Used in emails, meta tags, navbar
+  tagline: "Ship your SaaS in a weekend" # Landing page subtitle
+  domain: "localhost"                     # Production domain (no protocol)
+  support_email: "support@example.com"
+
+# --- Database ---------------------------------------------------------------
+# PostgreSQL is the only supported database. Configure via DATABASE_URL env var.
+database:
+  adapter: postgresql
+
+# --- Auth -------------------------------------------------------------------
+auth:
+  provider: devise                       # Only option for now (devise + devise-api)
+  jwt_expiry_hours: 24                   # JWT token lifetime
+  enable_registration: true              # Allow new signups
+  enable_magic_link: false               # Passwordless email login
+  oauth:
+    google: false                        # Set to true + add GOOGLE_CLIENT_ID/SECRET env vars
+    github: false                        # Set to true + add GITHUB_CLIENT_ID/SECRET env vars
+
+# --- Payments ---------------------------------------------------------------
+payments:
+  provider: stripe                       # stripe | lemon_squeezy (v2) | none
+  plans:
+    - id: free
+      name: "Free"
+      price_monthly: 0
+      price_yearly: 0
+      stripe_monthly_price_id: ""
+      stripe_yearly_price_id: ""
+      features:
+        - "1 project"
+        - "Basic analytics"
+        - "Community support"
+    - id: pro
+      name: "Pro"
+      price_monthly: 29
+      price_yearly: 290
+      stripe_monthly_price_id: ""        # Fill in from Stripe Dashboard
+      stripe_yearly_price_id: ""
+      features:
+        - "Unlimited projects"
+        - "Advanced analytics"
+        - "Priority support"
+        - "API access"
+    - id: enterprise
+      name: "Enterprise"
+      price_monthly: 99
+      price_yearly: 990
+      stripe_monthly_price_id: ""
+      stripe_yearly_price_id: ""
+      features:
+        - "Everything in Pro"
+        - "SSO / SAML"
+        - "Dedicated support"
+        - "Custom integrations"
+
+# --- Email ------------------------------------------------------------------
+email:
+  provider: resend                       # resend | sendgrid | mailgun | smtp
+  from: "noreply@example.com"            # Default sender address
+  reply_to: "support@example.com"
+
+# --- AI (optional) ----------------------------------------------------------
+ai:
+  provider: openai                       # openai | anthropic | none
+  # Set OPENAI_API_KEY or ANTHROPIC_API_KEY env var
+  default_model: "gpt-4o-mini"
+
+# --- Theme ------------------------------------------------------------------
+theme:
+  color_scheme: zinc                     # zinc | slate | stone | neutral | gray
+  primary_color: "#6366f1"               # Indigo-500 — buttons, links, accents
+  dark_mode: true                        # Enable dark mode toggle
+  font: "Inter"                          # Google Font name
+  border_radius: "0.5rem"               # Default border radius for cards/buttons
+  logo_url: ""                           # Path or URL to logo (leave blank for text logo)
+
+# --- SEO --------------------------------------------------------------------
+seo:
+  title: "MyApp — Ship your SaaS in a weekend"
+  description: "The fastest way to launch your SaaS. Rails API + React + Vite."
+  og_image: "/og-image.png"              # Open Graph image path
+  twitter_handle: ""                     # @handle (no @)
+  google_analytics_id: ""                # GA4 measurement ID (leave blank to disable)
+
+# --- Features (toggle on/off) ----------------------------------------------
+features:
+  blog: false                            # Markdown-based blog (v2)
+  admin_panel: false                     # Admin dashboard (v2)
+  teams: false                           # Multi-tenant / team accounts (v2)
+  api_keys: false                        # API key management for B2B (v2)
+  notifications: false                   # In-app notification system (v2)
