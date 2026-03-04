@@ -1,0 +1,11 @@
+# frozen_string_literal: true
+
+class <%= class_name %>Tool < RubyLLM::Tool
+  description "TODO: Describe what this tool does"
+
+  # param :query, type: :string, desc: "Search query", required: true
+
+  def execute(**params)
+    { result: "Not yet implemented" }
+  end
+end

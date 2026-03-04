@@ -1,0 +1,14 @@
+# frozen_string_literal: true
+
+require "test_helper"
+
+class <%= class_name %>ToolTest < ActiveSupport::TestCase
+  test "has a description" do
+    assert_not_nil <%= class_name %>Tool.description
+  end
+
+  test "execute returns a hash" do
+    result = <%= class_name %>Tool.new.execute
+    assert_kind_of Hash, result
+  end
+end

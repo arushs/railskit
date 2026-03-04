@@ -1,0 +1,29 @@
+# frozen_string_literal: true
+
+class <%= class_name %>Agent
+  SYSTEM_PROMPT = <<~PROMPT
+    You are <%= class_name %>, a helpful AI assistant.
+    Be concise, friendly, and professional.
+  PROMPT
+
+  attr_reader :llm_chat
+
+  def initialize(conversation: nil, model: nil)
+    @conversation = conversation
+    @llm_chat = conversation ? conversation.to_llm_chat(model: model) : RubyLLM.chat(model: model)
+    @llm_chat.with_instructions(SYSTEM_PROMPT)
+    register_tools
+  end
+
+  def ask(message)
+    response = @llm_chat.ask(message)
+    @conversation&.persist_exchange(user_content: message, response: response)
+    response
+  end
+
+  private
+
+  def register_tools
+    # @llm_chat.with_tool(SomeSearchTool)
+  end
+end

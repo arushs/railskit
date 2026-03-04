@@ -1,0 +1,15 @@
+# frozen_string_literal: true
+
+require "test_helper"
+
+class <%= class_name %>AgentTest < ActiveSupport::TestCase
+  test "initializes" do
+    agent = <%= class_name %>Agent.new
+    assert_not_nil agent
+  end
+
+  test "responds to ask" do
+    agent = <%= class_name %>Agent.new
+    assert agent.respond_to?(:ask)
+  end
+end
