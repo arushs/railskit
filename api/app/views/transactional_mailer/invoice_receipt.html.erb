@@ -1,0 +1,28 @@
+<h2>Payment received</h2>
+
+<p>Thanks for your payment, <%= @user.try(:name) || @user.email.split("@").first %>. Here's your receipt.</p>
+
+<table style="width: 100%; margin: 24px 0; border: 1px solid #eeeeee; border-radius: 6px; overflow: hidden;">
+  <tr style="background-color: #f9f9fb;">
+    <td style="padding: 12px 16px; font-weight: 600; color: #666;">Invoice #</td>
+    <td style="padding: 12px 16px;"><%= @invoice[:number] || @invoice.try(:number) || "—" %></td>
+  </tr>
+  <tr>
+    <td style="padding: 12px 16px; font-weight: 600; color: #666;">Date</td>
+    <td style="padding: 12px 16px;"><%= (@invoice[:date] || @invoice.try(:date) || Date.current).strftime("%B %d, %Y") %></td>
+  </tr>
+  <tr style="background-color: #f9f9fb;">
+    <td style="padding: 12px 16px; font-weight: 600; color: #666;">Amount</td>
+    <td style="padding: 12px 16px; font-size: 18px; font-weight: 600;"><%= @invoice[:amount] || @invoice.try(:amount) || "—" %></td>
+  </tr>
+  <tr>
+    <td style="padding: 12px 16px; font-weight: 600; color: #666;">Description</td>
+    <td style="padding: 12px 16px;"><%= @invoice[:description] || @invoice.try(:description) || "Subscription" %></td>
+  </tr>
+</table>
+
+<% if @invoice[:receipt_url] || @invoice.try(:receipt_url) %>
+  <a href="<%= @invoice[:receipt_url] || @invoice.try(:receipt_url) %>" class="btn">View Full Receipt</a>
+<% end %>
+
+<p class="muted">This is an automated receipt. No action is required.</p>

@@ -1,0 +1,11 @@
+You're all set!
+
+Thanks for subscribing to <%= @app_name %>, <%= @user.try(:name) || @user.email.split("@").first %>.
+
+Plan: <%= @subscription.try(:plan_name) || @subscription[:plan_name] %>
+Status: Active
+Next billing date: <%= @subscription.try(:current_period_end)&.strftime("%B %d, %Y") || "—" %>
+
+Manage your subscription: <%= @manage_url %>
+
+You can update your plan or cancel anytime from your billing portal.

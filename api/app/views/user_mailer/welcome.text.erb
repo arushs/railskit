@@ -1,0 +1,12 @@
+Welcome aboard, <%= @user.try(:name) || @user.email.split("@").first %>!
+
+Thanks for joining <%= @app_name %>. We're excited to have you.
+
+Here's what you can do next:
+- Explore the dashboard and set up your profile
+- Check out our documentation to get started fast
+- Reach out if you have any questions
+
+Get started: <%= @login_url %>
+
+If you didn't create this account, you can safely ignore this email.

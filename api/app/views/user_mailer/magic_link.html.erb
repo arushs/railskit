@@ -1,0 +1,19 @@
+<h2>Sign in to <%= @app_name %></h2>
+
+<p>Click the button below to sign in to your account. No password needed.</p>
+
+<a href="<%= @magic_url %>" class="btn">Sign In</a>
+
+<hr class="divider">
+
+<p class="muted">
+  This link expires in <strong><%= distance_of_time_in_words(@expires_in) %></strong>
+  and can only be used once.
+</p>
+
+<p class="muted">
+  If the button doesn't work, copy and paste this URL into your browser:<br>
+  <a href="<%= @magic_url %>" style="color: #666; word-break: break-all;"><%= @magic_url %></a>
+</p>
+
+<p class="muted">If you didn't request this link, you can safely ignore this email.</p>

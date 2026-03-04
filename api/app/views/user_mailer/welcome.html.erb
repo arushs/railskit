@@ -1,0 +1,15 @@
+<h2>Welcome aboard, <%= @user.try(:name) || @user.email.split("@").first %>! 👋</h2>
+
+<p>Thanks for joining <strong><%= @app_name %></strong>. We're excited to have you.</p>
+
+<p>Here's what you can do next:</p>
+
+<ul style="margin: 0 0 16px 0; padding-left: 20px;">
+  <li style="margin-bottom: 8px;">Explore the dashboard and set up your profile</li>
+  <li style="margin-bottom: 8px;">Check out our documentation to get started fast</li>
+  <li style="margin-bottom: 8px;">Reach out if you have any questions</li>
+</ul>
+
+<a href="<%= @login_url %>" class="btn">Get Started</a>
+
+<p class="muted">If you didn't create this account, you can safely ignore this email.</p>
