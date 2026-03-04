@@ -1,72 +1,95 @@
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
-import { api } from "@/lib/api";
-
-export interface User {
-  id: number;
-  email: string;
-  name: string | null;
-  avatar_url: string | null;
-  created_at: string;
-}
+import { createContext, useCallback, useEffect, useState, type ReactNode } from "react";
+import { authApi, type User } from "../lib/api";
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  signup: (email: string, password: string, name: string) => Promise<void>;
-  logout: () => Promise<void>;
-  updateUser: (data: Partial<User>) => void;
+  signUp: (email: string, password: string, name?: string) => Promise<{ ok: boolean; error?: string }>;
+  signIn: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
+  signOut: () => Promise<void>;
+  requestMagicLink: (email: string) => Promise<{ ok: boolean }>;
+  verifyMagicLink: (token: string) => Promise<{ ok: boolean; error?: string }>;
+  updateProfile: (data: { name?: string; avatar_url?: string }) => Promise<{ ok: boolean }>;
+  refreshUser: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | null>(null);
+export const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const refreshUser = useCallback(async () => {
+    try {
+      const res = await authApi.me();
+      if (res.ok) {
+        setUser(res.data.user);
+      } else {
+        setUser(null);
+      }
+    } catch {
+      setUser(null);
+    }
+  }, []);
+
   useEffect(() => {
-    api.get<{ user: User }>("/api/auth/me")
-      .then(({ data, ok }) => {
-        if (ok && data.user) setUser(data.user);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
+    refreshUser().finally(() => setLoading(false));
+  }, [refreshUser]);
 
-  const login = useCallback(async (email: string, password: string) => {
-    const { data, ok } = await api.post<{ user: User }>("/api/auth/login", {
-      user: { email, password },
-    });
-    if (!ok) throw new Error((data as unknown as { error: string }).error || "Login failed");
-    setUser(data.user);
-  }, []);
+  const signUp = async (email: string, password: string, name?: string) => {
+    const res = await authApi.signUp(email, password, name);
+    if (res.ok) {
+      setUser(res.data.user);
+      return { ok: true };
+    }
+    const errorData = res.data as unknown as { details?: string[] };
+    return { ok: false, error: errorData.details?.join(", ") || "Sign up failed" };
+  };
 
-  const signup = useCallback(async (email: string, password: string, name: string) => {
-    const { data, ok } = await api.post<{ user: User }>("/api/auth/signup", {
-      user: { email, password, name },
-    });
-    if (!ok) throw new Error((data as unknown as { error: string }).error || "Signup failed");
-    setUser(data.user);
-  }, []);
+  const signIn = async (email: string, password: string) => {
+    const res = await authApi.signIn(email, password);
+    if (res.ok) {
+      setUser(res.data.user);
+      return { ok: true };
+    }
+    const errorData = res.data as unknown as { error?: string };
+    return { ok: false, error: errorData.error || "Invalid credentials" };
+  };
 
-  const logout = useCallback(async () => {
-    await api.delete("/api/auth/logout");
+  const signOut = async () => {
+    await authApi.signOut();
     setUser(null);
-  }, []);
+  };
 
-  const updateUser = useCallback((data: Partial<User>) => {
-    setUser((prev) => (prev ? { ...prev, ...data } : null));
-  }, []);
+  const requestMagicLink = async (email: string) => {
+    const res = await authApi.requestMagicLink(email);
+    return { ok: res.ok };
+  };
+
+  const verifyMagicLink = async (token: string) => {
+    const res = await authApi.verifyMagicLink(token);
+    if (res.ok) {
+      setUser(res.data.user);
+      return { ok: true };
+    }
+    const errorData = res.data as unknown as { error?: string };
+    return { ok: false, error: errorData.error || "Invalid magic link" };
+  };
+
+  const updateProfile = async (data: { name?: string; avatar_url?: string }) => {
+    const res = await authApi.updateProfile(data);
+    if (res.ok) {
+      setUser(res.data.user);
+      return { ok: true };
+    }
+    return { ok: false };
+  };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, signup, logout, updateUser }}>
+    <AuthContext.Provider
+      value={{ user, loading, signUp, signIn, signOut, requestMagicLink, verifyMagicLink, updateProfile, refreshUser }}
+    >
       {children}
     </AuthContext.Provider>
   );
-}
-
-export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
-  return ctx;
 }

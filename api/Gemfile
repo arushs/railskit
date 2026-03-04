@@ -35,6 +35,12 @@ gem "image_processing", "~> 1.2"
 # Use Rack CORS for handling Cross-Origin Resource Sharing (CORS), making cross-origin Ajax possible
 gem "rack-cors"
 
+# Authentication
+gem "devise", "~> 4.9"
+gem "devise-jwt", "~> 0.12"
+gem "omniauth-google-oauth2", "~> 1.2"
+gem "omniauth-rails_csrf_protection", "~> 1.0"
+
 # Interactive CLI prompts
 gem "tty-prompt", "~> 0.23"
 

@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
-import { useAuth } from "@/contexts/AuthContext";
-import { api } from "@/lib/api";
+import { useAuth } from "@/hooks/useAuth";
+import { api } from "@/lib/api"; // used for password change
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 
 export default function SettingsPage() {
-  const { user, updateUser } = useAuth();
+  const { user, updateProfile } = useAuth();
   const [name, setName] = useState(user?.name || "");
   const [avatarUrl, setAvatarUrl] = useState(user?.avatar_url || "");
   const [profileSaving, setProfileSaving] = useState(false);
@@ -27,11 +27,8 @@ export default function SettingsPage() {
     setProfileSaving(true);
     setProfileSuccess(false);
     try {
-      const { ok } = await api.put("/api/auth/profile", {
-        user: { name, avatar_url: avatarUrl || null },
-      });
+      const { ok } = await updateProfile({ name, avatar_url: avatarUrl || undefined });
       if (ok) {
-        updateUser({ name, avatar_url: avatarUrl || null });
         setProfileSuccess(true);
         setTimeout(() => setProfileSuccess(false), 3000);
       }
