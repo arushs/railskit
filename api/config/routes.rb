@@ -23,5 +23,6 @@ Rails.application.routes.draw do
 
     # Agents
     post "agents/:agent_name/chat", to: "agents#chat"
+    post "agents/:agent_name/stream", to: "agents#stream_chat"
   end
 end

@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "devDependencies": {
+    "@types/rails__actioncable": "^8.0.3",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "typescript": "~5.9.3",
@@ -16,6 +17,7 @@
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.12",
+    "@rails/actioncable": "^8.1.200",
     "@tailwindcss/vite": "^4.2.1",
     "@vitejs/plugin-react": "^5.1.4",
     "class-variance-authority": "^0.7.1",
