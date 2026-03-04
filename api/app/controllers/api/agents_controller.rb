@@ -2,6 +2,7 @@
 
 module Api
   class AgentsController < ApplicationController
+    # Non-streaming chat — returns full response at once
     def chat
       conversation = find_or_create_conversation
       agent = agent_class_name.constantize.new(conversation: conversation)
@@ -18,6 +19,27 @@ module Api
       }
     rescue => e
       Rails.logger.error("[AgentsController] #{e.class}: #{e.message}")
+      render json: { error: "Something went wrong." }, status: :internal_server_error
+    end
+
+    # Streaming chat — creates conversation, enqueues streaming job,
+    # returns conversation_id for the client to subscribe via ActionCable.
+    def stream_chat
+      conversation = find_or_create_conversation
+
+      # Persist user message immediately so the frontend can display it
+      conversation.persist_message(role: "user", content: params[:message])
+
+      # Enqueue background job to stream via ActionCable
+      AgentStreamJob.perform_later(
+        conversation_id: conversation.id,
+        agent_name: params[:agent_name],
+        message: params[:message]
+      )
+
+      render json: { conversation_id: conversation.id }
+    rescue => e
+      Rails.logger.error("[AgentsController#stream_chat] #{e.class}: #{e.message}")
       render json: { error: "Something went wrong." }, status: :internal_server_error
     end
 

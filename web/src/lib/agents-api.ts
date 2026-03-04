@@ -111,11 +111,26 @@ export async function getConversationMessages(
   );
 }
 
+/**
+ * @deprecated Use `useAgentStream` hook for ActionCable-based streaming instead.
+ */
 export function streamConversation(conversationId: string): EventSource {
   const base = import.meta.env.VITE_API_URL || "";
   return new EventSource(
     `${base}/api/agents/conversations/${conversationId}/stream`,
   );
+}
+
+/** Initiate a streaming agent chat. Subscribe to AgentChatChannel for tokens. */
+export async function startStreamChat(
+  agentName: string,
+  message: string,
+  conversationId?: string,
+) {
+  return api.post<{ conversation_id: string }>(`/api/agents/${agentName}/stream`, {
+    message,
+    conversation_id: conversationId,
+  });
 }
 
 export async function getCostSummary(params?: {

@@ -24,6 +24,12 @@ class HelpDeskAgent
     response
   end
 
+  # Stream response token-by-token, yielding each chunk to the caller.
+  # Returns the final complete response object.
+  def stream(message, &block)
+    @llm_chat.ask(message, &block)
+  end
+
   private
 
   def register_tools

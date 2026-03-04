@@ -84,4 +84,9 @@ Rails.application.configure do
   #
   # Skip DNS rebinding protection for the default health check endpoint.
   # config.host_authorization = { exclude: ->(request) { request.path == "/up" } }
+
+  # ActionCable — restrict WebSocket origins in production
+  config.action_cable.allowed_request_origins = [
+    ENV.fetch("CORS_ORIGINS", "https://localhost")
+  ]
 end
