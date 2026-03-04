@@ -1,5 +1,3 @@
-import { useState } from "react";
-
 /**
  * FAQ — Overcome objections before they become reasons to leave.
  *
@@ -11,6 +9,13 @@ import { useState } from "react";
  * - Answers should be 1-3 sentences. Link to docs for details.
  * - End with a "Still have questions?" CTA.
  */
+
+import {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
+} from "@/components/ui/accordion";
 
 const FAQS = [
   {
@@ -43,39 +48,7 @@ const FAQS = [
   },
 ];
 
-function FAQItem({ faq, isOpen, toggle }: { faq: typeof FAQS[0]; isOpen: boolean; toggle: () => void }) {
-  return (
-    <div className="border-b border-zinc-800 last:border-0">
-      <button
-        onClick={toggle}
-        className="w-full flex items-center justify-between py-5 text-left group"
-      >
-        <span className="text-base font-medium text-white group-hover:text-indigo-400 transition-colors pr-4">
-          {faq.q}
-        </span>
-        <svg
-          className={`w-5 h-5 text-zinc-400 flex-shrink-0 transition-transform duration-200 ${
-            isOpen ? "rotate-180" : ""
-          }`}
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
-      {isOpen && (
-        <div className="pb-5 pr-12">
-          <p className="text-sm text-zinc-400 leading-relaxed">{faq.a}</p>
-        </div>
-      )}
-    </div>
-  );
-}
-
 export default function FAQ() {
-  const [openIndex, setOpenIndex] = useState<number | null>(0);
-
   return (
     <section id="faq" className="py-20 sm:py-28 bg-zinc-900/50">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -89,27 +62,38 @@ export default function FAQ() {
         </div>
 
         <div className="bg-zinc-900 rounded-2xl border border-zinc-800 px-6">
-          {FAQS.map((faq, i) => (
-            <FAQItem
-              key={i}
-              faq={faq}
-              isOpen={openIndex === i}
-              toggle={() => setOpenIndex(openIndex === i ? null : i)}
-            />
-          ))}
+          <Accordion type="single" collapsible defaultValue="item-0">
+            {FAQS.map((faq, i) => (
+              <AccordionItem key={i} value={`item-${i}`}>
+                <AccordionTrigger>{faq.q}</AccordionTrigger>
+                <AccordionContent>
+                  <p className="text-sm text-zinc-400 leading-relaxed">
+                    {faq.a}
+                  </p>
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
         </div>
 
         {/* Still have questions CTA */}
         <div className="text-center mt-10">
           <p className="text-zinc-400 text-sm">
             Still have questions?{" "}
-            <a href="mailto:hello@railskit.dev" className="text-indigo-400 hover:text-indigo-300 underline underline-offset-2">
+            <a
+              href="mailto:hello@railskit.dev"
+              className="text-indigo-400 hover:text-indigo-300 underline underline-offset-2"
+            >
               Reach out
-            </a>
-            {" "}or check the{" "}
-            <a href="/docs" className="text-indigo-400 hover:text-indigo-300 underline underline-offset-2">
+            </a>{" "}
+            or check the{" "}
+            <a
+              href="/docs"
+              className="text-indigo-400 hover:text-indigo-300 underline underline-offset-2"
+            >
               docs
-            </a>.
+            </a>
+            .
           </p>
         </div>
       </div>

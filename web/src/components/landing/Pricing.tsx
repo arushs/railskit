@@ -1,4 +1,14 @@
 import { useState } from "react";
+import { Check } from "lucide-react";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 /**
  * Pricing — Where visitors become customers.
@@ -87,28 +97,39 @@ export default function Pricing() {
             Simple, transparent pricing
           </h2>
           <p className="mt-4 text-zinc-400 text-lg max-w-2xl mx-auto">
-            Start free. Upgrade when you need auth, payments, and premium features.
+            Start free. Upgrade when you need auth, payments, and premium
+            features.
           </p>
 
           {/* Monthly / Annual toggle */}
           <div className="mt-8 inline-flex items-center gap-3 bg-zinc-900 rounded-full p-1 border border-zinc-800">
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => setAnnual(false)}
-              className={`px-4 py-2 text-sm font-medium rounded-full transition-all ${
-                !annual ? "bg-indigo-600 text-white" : "text-zinc-400 hover:text-white"
+              className={`rounded-full ${
+                !annual
+                  ? "bg-indigo-600 text-white hover:bg-indigo-500 hover:text-white"
+                  : "text-zinc-400 hover:text-white"
               }`}
             >
               Monthly
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => setAnnual(true)}
-              className={`px-4 py-2 text-sm font-medium rounded-full transition-all ${
-                annual ? "bg-indigo-600 text-white" : "text-zinc-400 hover:text-white"
+              className={`rounded-full ${
+                annual
+                  ? "bg-indigo-600 text-white hover:bg-indigo-500 hover:text-white"
+                  : "text-zinc-400 hover:text-white"
               }`}
             >
               Annual
-              <span className="ml-1.5 text-xs text-green-400 font-semibold">Save 20%</span>
-            </button>
+              <span className="ml-1.5 text-xs text-green-400 font-semibold">
+                Save 20%
+              </span>
+            </Button>
           </div>
         </div>
 
@@ -116,12 +137,12 @@ export default function Pricing() {
           {TIERS.map((tier) => {
             const price = annual ? tier.annualPrice : tier.monthlyPrice;
             return (
-              <div
+              <Card
                 key={tier.name}
-                className={`relative flex flex-col p-8 rounded-2xl border transition-all ${
+                className={`relative flex flex-col transition-all ${
                   tier.highlighted
                     ? "bg-zinc-900 border-indigo-500/50 shadow-xl shadow-indigo-500/10 scale-[1.02]"
-                    : "bg-zinc-900/50 border-zinc-800 hover:border-zinc-700"
+                    : "hover:border-zinc-700"
                 }`}
               >
                 {tier.highlighted && (
@@ -130,49 +151,52 @@ export default function Pricing() {
                   </div>
                 )}
 
-                <div className="mb-6">
-                  <h3 className="text-lg font-semibold text-white">{tier.name}</h3>
-                  <p className="mt-1 text-sm text-zinc-400">{tier.description}</p>
-                </div>
+                <CardHeader>
+                  <CardTitle>{tier.name}</CardTitle>
+                  <CardDescription>{tier.description}</CardDescription>
+                </CardHeader>
 
-                <div className="mb-6">
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-4xl font-bold text-white">
-                      {price === 0 ? "Free" : `$${price}`}
-                    </span>
-                    {price > 0 && (
-                      <span className="text-sm text-zinc-500">/month</span>
+                <CardContent className="flex-1">
+                  <div className="mb-6">
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-4xl font-bold text-white">
+                        {price === 0 ? "Free" : `$${price}`}
+                      </span>
+                      {price > 0 && (
+                        <span className="text-sm text-zinc-500">/month</span>
+                      )}
+                    </div>
+                    {price > 0 && annual && (
+                      <p className="mt-1 text-xs text-zinc-500">
+                        Billed ${price * 12}/year
+                      </p>
                     )}
                   </div>
-                  {price > 0 && annual && (
-                    <p className="mt-1 text-xs text-zinc-500">
-                      Billed ${price * 12}/year
-                    </p>
-                  )}
-                </div>
 
-                <ul className="space-y-3 mb-8 flex-1">
-                  {tier.features.map((f, i) => (
-                    <li key={i} className="flex items-start gap-2 text-sm">
-                      <svg className="w-4 h-4 text-indigo-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span className="text-zinc-300">{f}</span>
-                    </li>
-                  ))}
-                </ul>
+                  <ul className="space-y-3">
+                    {tier.features.map((f, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm">
+                        <Check className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
+                        <span className="text-zinc-300">{f}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
 
-                <a
-                  href="#"
-                  className={`block text-center py-3 px-6 rounded-xl text-sm font-semibold transition-all ${
-                    tier.highlighted
-                      ? "bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/25"
-                      : "bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700"
-                  }`}
-                >
-                  {tier.cta}
-                </a>
-              </div>
+                <CardFooter>
+                  <Button
+                    variant={tier.highlighted ? "default" : "secondary"}
+                    className="w-full"
+                    onClick={() =>
+                      document
+                        .getElementById("pricing")
+                        ?.scrollIntoView({ behavior: "smooth" })
+                    }
+                  >
+                    {tier.cta}
+                  </Button>
+                </CardFooter>
+              </Card>
             );
           })}
         </div>

@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 /**
  * Hero — The first thing visitors see. Make it count.
@@ -118,7 +120,7 @@ export default function Hero() {
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
             <a
               href="#pricing"
-              className="w-full sm:w-auto px-8 py-3.5 text-base font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl transition-all hover:shadow-lg hover:shadow-indigo-500/25"
+              className={cn(buttonVariants({ variant: "default" }), "w-full sm:w-auto")}
             >
               Get Started — Free
             </a>
@@ -126,7 +128,7 @@ export default function Hero() {
               href="https://github.com/arushs/railskit"
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full sm:w-auto px-8 py-3.5 text-base font-medium text-zinc-300 bg-zinc-800 hover:bg-zinc-700 rounded-xl transition-all border border-zinc-700"
+              className={cn(buttonVariants({ variant: "secondary" }), "w-full sm:w-auto")}
             >
               ⭐ Star on GitHub
             </a>

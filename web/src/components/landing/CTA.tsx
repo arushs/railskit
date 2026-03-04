@@ -8,6 +8,9 @@
  * - One primary CTA. Don't dilute with options.
  */
 
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+
 export default function CTA() {
   return (
     <section className="py-20 sm:py-28 bg-zinc-950 relative overflow-hidden">
@@ -35,13 +38,13 @@ export default function CTA() {
         <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
           <a
             href="#pricing"
-            className="w-full sm:w-auto px-8 py-3.5 text-base font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl transition-all hover:shadow-lg hover:shadow-indigo-500/25"
+            className={cn(buttonVariants({ variant: "default" }), "w-full sm:w-auto")}
           >
             Get Started — Free
           </a>
           <a
             href="/docs"
-            className="w-full sm:w-auto px-8 py-3.5 text-base font-medium text-zinc-300 hover:text-white transition-colors"
+            className={cn(buttonVariants({ variant: "ghost" }), "w-full sm:w-auto")}
           >
             Read the docs →
           </a>
