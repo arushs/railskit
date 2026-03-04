@@ -64,12 +64,12 @@ export default function DashboardOverview() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Recent Conversations</CardTitle>
-          <Link to="/dashboard/conversations" className="text-sm text-indigo-400 hover:text-indigo-300">{"View all \u2192"}</Link>
+          <Link to="/agents/conversations" className="text-sm text-indigo-400 hover:text-indigo-300">{"View all \u2192"}</Link>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
             {mockConversations.slice(0, 3).map((conv) => (
-              <Link key={conv.id} to={`/dashboard/conversations/${conv.id}`}
+              <Link key={conv.id} to={`/agents/conversations/${conv.id}`}
                 className="flex items-start gap-3 rounded-xl border border-zinc-800 bg-zinc-900/30 p-4 hover:bg-zinc-800/50 transition-colors">
                 <span className="text-xl mt-0.5">{conv.agentEmoji}</span>
                 <div className="min-w-0 flex-1">
