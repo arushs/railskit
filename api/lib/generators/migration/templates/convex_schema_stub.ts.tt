@@ -1,0 +1,16 @@
+// Convex schema stub: <%= class_name %>
+// Add this to your convex/schema.ts defineSchema() call.
+//
+// Convex manages its own schema — this is a starting point only.
+// See: https://docs.convex.dev/database/schemas
+
+import { defineTable } from "convex/server";
+import { v } from "convex/values";
+
+export const <%= table_name %> = defineTable({
+<%- columns_for_migration.each_with_index do |col, i| -%>
+  <%= col[:name] %>: v.<%= convex_type_for(col[:type]) %>(),<%= "\n" %>
+<%- end -%>
+  createdAt: v.number(), // Unix timestamp
+  updatedAt: v.number(),
+});

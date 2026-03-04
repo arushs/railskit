@@ -1,0 +1,25 @@
+Description:
+  Adapter-aware migration generator for RailsKit.
+
+  Generates the appropriate migration file based on the configured
+  database adapter in railskit.yml (or the --adapter override).
+
+  Adapters:
+    postgresql  → Standard ActiveRecord migration (db/migrate/)
+    supabase    → Raw SQL migration (db/supabase_migrations/)
+    convex      → TypeScript schema stub (db/convex_schemas/)
+
+Example:
+  rails generate migration CreateProducts name:string price:decimal
+
+  With postgresql adapter:
+    db/migrate/20260304120000_create_products.rb
+
+  With supabase adapter:
+    db/supabase_migrations/20260304120000_create_products.sql
+
+  With convex adapter:
+    db/convex_schemas/create_products.ts
+
+  Override adapter:
+    rails generate migration CreateProducts name:string --adapter=supabase
