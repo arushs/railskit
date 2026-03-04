@@ -4,234 +4,189 @@ How to add a complete feature to RailsKit — database model → API endpoint �
 
 ---
 
-## The Pattern
-
-```
-1. Model (Rails)      → Database table + business logic
-2. Controller (Rails)  → API endpoint
-3. Hook (React)        → Data fetching with TanStack Query
-4. Page (React)        → UI components
-5. Route (React)       → Wire it into the router
-```
-
----
-
-## 1. Create the Model
+## 1. Generate the Migration
 
 ```bash
 cd api
-bin/rails generate model Project \
-  name:string \
-  description:text \
-  user:references \
-  status:string
-bin/rails db:migrate
+bin/rails generate migration CreateProjects name:string description:text user:references status:string
 ```
+
+If you're using PostgreSQL (the default), this creates a standard ActiveRecord migration:
 
 ```ruby
-# api/app/models/project.rb
-class Project < ApplicationRecord
-  belongs_to :user
+class CreateProjects < ActiveRecord::Migration[8.1]
+  def change
+    create_table :projects do |t|
+      t.string :name
+      t.text :description
+      t.references :user, null: false, foreign_key: true
+      t.string :status
 
-  validates :name, presence: true, length: { maximum: 100 }
-  validates :status, inclusion: { in: %w[active paused completed archived] }
-
-  scope :active, -> { where(status: "active") }
-  scope :for_user, ->(user) { where(user: user) }
-end
-```
-
-## 2. Create the Controller
-
-```bash
-bin/rails generate controller Api::V1::Projects
-```
-
-```ruby
-# api/app/controllers/api/v1/projects_controller.rb
-module Api
-  module V1
-    class ProjectsController < ApplicationController
-      before_action :authenticate_user!
-      before_action :set_project, only: [:show, :update, :destroy]
-
-      def index
-        projects = current_user.projects.order(created_at: :desc)
-        render json: projects
-      end
-
-      def show
-        render json: @project
-      end
-
-      def create
-        project = current_user.projects.build(project_params)
-
-        if project.save
-          render json: project, status: :created
-        else
-          render json: { errors: project.errors.full_messages }, status: :unprocessable_entity
-        end
-      end
-
-      def update
-        if @project.update(project_params)
-          render json: @project
-        else
-          render json: { errors: @project.errors.full_messages }, status: :unprocessable_entity
-        end
-      end
-
-      def destroy
-        @project.destroy
-        head :no_content
-      end
-
-      private
-
-      def set_project
-        @project = current_user.projects.find(params[:id])
-      end
-
-      def project_params
-        params.require(:project).permit(:name, :description, :status)
-      end
+      t.timestamps
     end
   end
 end
 ```
 
-Add the route:
+> **Note:** The migration generator is adapter-aware. With Supabase it generates raw SQL; with Convex it generates a TypeScript schema stub. Override with `--adapter supabase`.
+
+Run the migration:
+```bash
+bin/rails db:migrate
+```
+
+## 2. Create the Model
+
+`api/app/models/project.rb`:
 
 ```ruby
-# api/config/routes.rb
-namespace :api do
-  namespace :v1 do
-    resources :projects
+class Project < ApplicationRecord
+  belongs_to :user
+
+  validates :name, presence: true
+  validates :status, inclusion: { in: %w[draft active archived] }
+
+  scope :active, -> { where(status: "active") }
+  scope :by_user, ->(user) { where(user: user) }
+end
+```
+
+## 3. Create the Controller
+
+`api/app/controllers/api/projects_controller.rb`:
+
+```ruby
+module Api
+  class ProjectsController < ApplicationController
+    before_action :authenticate_user_from_jwt!
+    before_action :set_project, only: [:show, :update, :destroy]
+
+    def index
+      projects = current_user.projects.order(created_at: :desc)
+      render json: { projects: projects }
+    end
+
+    def show
+      render json: { project: @project }
+    end
+
+    def create
+      project = current_user.projects.build(project_params)
+      if project.save
+        render json: { project: project }, status: :created
+      else
+        render_unprocessable(project)
+      end
+    end
+
+    def update
+      if @project.update(project_params)
+        render json: { project: @project }
+      else
+        render_unprocessable(@project)
+      end
+    end
+
+    def destroy
+      @project.destroy!
+      render json: { message: "Project deleted" }
+    end
+
+    private
+
+    def set_project
+      @project = current_user.projects.find(params[:id])
+    end
+
+    def project_params
+      params.require(:project).permit(:name, :description, :status)
+    end
   end
 end
 ```
 
-## 3. Create the React Hook
+### Authentication
 
-```typescript
-// web/src/hooks/useProjects.ts
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/lib/api';
+`authenticate_user_from_jwt!` is defined in `ApplicationController`. It:
+1. Extracts the JWT from the `jwt` httpOnly cookie (or `Authorization` header)
+2. Decodes it and finds the user
+3. Returns 401 if invalid
+
+`current_user` is available after authentication.
+
+`render_unprocessable(resource)` is a helper that returns validation errors as JSON:
+```json
+{ "error": "Validation failed", "details": ["Name can't be blank"] }
+```
+
+## 4. Add Routes
+
+`api/config/routes.rb`:
+
+```ruby
+namespace :api do
+  # ... existing routes ...
+  resources :projects
+end
+```
+
+This creates:
+| Method | Path | Action |
+|---|---|---|
+| GET | `/api/projects` | index |
+| POST | `/api/projects` | create |
+| GET | `/api/projects/:id` | show |
+| PATCH | `/api/projects/:id` | update |
+| DELETE | `/api/projects/:id` | destroy |
+
+## 5. Add the User Association
+
+`api/app/models/user.rb` — add the association:
+
+```ruby
+has_many :projects, dependent: :destroy
+```
+
+## 6. Create the React Page
+
+`web/src/pages/ProjectsPage.tsx`:
+
+```tsx
+import { useEffect, useState } from "react";
+import { api } from "@/lib/api";
 
 interface Project {
   id: number;
   name: string;
   description: string;
-  status: 'active' | 'paused' | 'completed' | 'archived';
+  status: string;
   created_at: string;
 }
 
-export const useProjects = () =>
-  useQuery<Project[]>({
-    queryKey: ['projects'],
-    queryFn: () => api.get('/api/v1/projects').then(r => r.data),
-  });
+export default function ProjectsPage() {
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
 
-export const useProject = (id: number) =>
-  useQuery<Project>({
-    queryKey: ['projects', id],
-    queryFn: () => api.get(`/api/v1/projects/${id}`).then(r => r.data),
-  });
+  useEffect(() => {
+    api.get<{ projects: Project[] }>("/api/projects")
+      .then((res) => {
+        if (res.ok) setProjects(res.data.projects);
+      })
+      .finally(() => setLoading(false));
+  }, []);
 
-export const useCreateProject = () => {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (data: { name: string; description?: string }) =>
-      api.post('/api/v1/projects', { project: data }).then(r => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['projects'] }),
-  });
-};
-
-export const useUpdateProject = () => {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, ...data }: { id: number } & Partial<Project>) =>
-      api.patch(`/api/v1/projects/${id}`, { project: data }).then(r => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['projects'] }),
-  });
-};
-
-export const useDeleteProject = () => {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (id: number) => api.delete(`/api/v1/projects/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['projects'] }),
-  });
-};
-```
-
-## 4. Create the Page
-
-```tsx
-// web/src/pages/Projects.tsx
-import { useState } from 'react';
-import { useProjects, useCreateProject, useDeleteProject } from '@/hooks/useProjects';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Plus, Trash2 } from 'lucide-react';
-
-export default function Projects() {
-  const { data: projects, isLoading } = useProjects();
-  const createProject = useCreateProject();
-  const deleteProject = useDeleteProject();
-  const [newName, setNewName] = useState('');
-
-  const handleCreate = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newName.trim()) return;
-    createProject.mutate({ name: newName });
-    setNewName('');
-  };
-
-  if (isLoading) return <div>Loading...</div>;
+  if (loading) return <div>Loading...</div>;
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Projects</h1>
-
-      <form onSubmit={handleCreate} className="flex gap-2">
-        <Input
-          value={newName}
-          onChange={e => setNewName(e.target.value)}
-          placeholder="New project name..."
-        />
-        <Button type="submit" disabled={createProject.isPending}>
-          <Plus className="h-4 w-4 mr-1" /> Create
-        </Button>
-      </form>
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {projects?.map(project => (
-          <Card key={project.id}>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-lg">{project.name}</CardTitle>
-              <Badge variant={project.status === 'active' ? 'default' : 'secondary'}>
-                {project.status}
-              </Badge>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                {project.description || 'No description'}
-              </p>
-              <div className="mt-4 flex justify-end">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => deleteProject.mutate(project.id)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+    <div className="max-w-4xl mx-auto p-6">
+      <h1 className="text-2xl font-bold mb-4">Projects</h1>
+      <div className="space-y-4">
+        {projects.map((project) => (
+          <div key={project.id} className="border rounded-lg p-4">
+            <h2 className="text-lg font-semibold">{project.name}</h2>
+            <p className="text-muted-foreground">{project.description}</p>
+            <span className="text-sm">{project.status}</span>
+          </div>
         ))}
       </div>
     </div>
@@ -239,52 +194,64 @@ export default function Projects() {
 }
 ```
 
-## 5. Add the Route
+### API Client
+
+The `api` object from `web/src/lib/api.ts` handles:
+- Prefixing with `VITE_API_URL`
+- Sending `credentials: "include"` for httpOnly cookie auth
+- JSON serialization/deserialization
+- Typed responses via generics
+
+## 7. Add the Route
+
+`web/src/main.tsx`:
 
 ```tsx
-// web/src/routes.tsx — add to dashboard routes:
-{ path: 'projects', element: <Projects /> }
+import ProjectsPage from "./pages/ProjectsPage";
+
+// Inside <Routes>, under the AuthGuard:
+<Route element={<AuthGuard />}>
+  <Route element={<DashboardLayout />}>
+    <Route path="/dashboard" element={<DashboardPage />} />
+    <Route path="/dashboard/projects" element={<ProjectsPage />} />
+    {/* ... */}
+  </Route>
+</Route>
 ```
 
-```tsx
-// web/src/components/dashboard/Sidebar.tsx — add nav item:
-{ name: 'Projects', href: '/dashboard/projects', icon: FolderIcon }
+## 8. Test the Full Flow
+
+```bash
+# Create a project (need a valid JWT cookie — sign in first)
+curl -X POST http://localhost:3000/api/projects \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT" \
+  -d '{"project": {"name": "My Project", "description": "A cool project", "status": "active"}}'
 ```
 
 ---
 
-## 6. Add an Agent Tool (Optional)
+## Feature Gating with Plans
 
-```bash
-cd api && bin/rails generate tool ListProjects
-```
+If this feature should be restricted to paid plans, use the `Billable` concern:
 
 ```ruby
-class ListProjects < RubyLLM::Tool
-  description "List the current user's projects, optionally filtered by status"
-  param :status, desc: "Filter: active, paused, completed, archived"
-
-  def execute(status: nil)
-    projects = current_user.projects
-    projects = projects.where(status: status) if status
-    projects.limit(10).map { |p| { id: p.id, name: p.name, status: p.status } }
+# In your controller
+def create
+  unless current_user.feature?("projects")
+    return render json: { error: "Upgrade to create projects" }, status: :forbidden
   end
+  # ... normal create logic
 end
 ```
 
-Then add to any agent: `tools ..., ListProjects`
+The `feature?` method checks the user's active subscription's plan features (stored as JSONB on the Plan model).
 
----
-
-## Checklist
-
-- [ ] **Model** — Migration, validations, associations, scopes
-- [ ] **Controller** — CRUD endpoints under `Api::V1`
-- [ ] **Routes** — `config/routes.rb`
-- [ ] **Auth** — `authenticate_user!`, scoped to `current_user`
-- [ ] **Hook** — TanStack Query hooks for all operations
-- [ ] **Page** — React component with loading/error states
-- [ ] **Route** — React Router entry
-- [ ] **Navigation** — Sidebar link
-- [ ] **Tests** — Model + request (Rails), component (React)
-- [ ] **Tool** — (Optional) Agent tool for AI access
+Add the feature to your plan seeds:
+```ruby
+# db/seeds/plans.rb
+{
+  name: "Pro Monthly",
+  features: { "projects" => true, "max_projects" => 50 }
+}
+```

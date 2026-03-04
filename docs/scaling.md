@@ -4,186 +4,178 @@ RailsKit's defaults are optimized for launch speed. This guide covers when and h
 
 ---
 
-## When to Scale
+## Background Jobs
 
-| Signal | Upgrade | Threshold |
-|---|---|---|
-| API response times > 500ms | Database queries, caching | ~1000 req/min |
-| Background jobs backing up | Solid Queue → Sidekiq + Redis | ~1000 jobs/min |
-| WebSocket connections dropping | ActionCable adapter | ~500 concurrent |
-| Agent costs rising fast | Model selection, caching | > $50/day |
-| Database CPU > 80% | Postgres plan, read replicas | Varies |
+### Default: Solid Queue in Puma
+
+Out of the box, Solid Queue runs inside the Puma web process (`SOLID_QUEUE_IN_PUMA=true`). This means:
+- No extra process to manage
+- Jobs share resources with web requests
+- Fine for low-to-moderate job volume
+
+### When to Split
+
+**Split when:** Job processing causes noticeable web request latency, or you have >100 jobs/minute.
+
+**How:**
+```bash
+# Set env var
+SOLID_QUEUE_IN_PUMA=false
+
+# Run a dedicated worker process
+bin/rails solid_queue:start
+```
+
+Update your Procfile.dev:
+```
+api: cd api && bin/rails server -p 3000
+web: cd web && npm run dev
+worker: cd api && bin/rails solid_queue:start
+```
+
+### When to Add Redis + Sidekiq
+
+**When:** You need advanced job features (rate limiting, batch jobs, cron) or >1000 jobs/minute.
+
+**How:** Add `sidekiq` to your Gemfile, configure `config.active_job.queue_adapter = :sidekiq`, and run a Redis instance.
 
 ---
 
 ## Database
 
-### PostgreSQL Scaling Path
+### Default: PostgreSQL (Single Instance)
 
-**1. Add indexes** (handles 10x growth alone):
+Works for most apps up to ~100K users and millions of rows.
 
-```ruby
-add_index :projects, [:user_id, :status]
-add_index :chats, [:user_id, :created_at]
-add_index :messages, :chat_id
-```
+### When to Optimize
 
-**2. Connection pooling** — PgBouncer when you hit connection limits (~20-100).
+**Add read replicas when:** Read-heavy workload, >50% of queries are reads.
 
-**3. Read replicas** — Route dashboards/reports to a replica:
+**Add connection pooling when:** Running multiple Puma workers + background jobs. Use PgBouncer.
 
-```ruby
-# config/database.yml
-production:
-  primary:
-    url: <%= ENV['DATABASE_URL'] %>
-  replica:
-    url: <%= ENV['DATABASE_REPLICA_URL'] %>
-    replica: true
-```
-
-**4. Vertical scaling** — Bigger instance before sharding. Simpler is better.
-
-### Convex / Supabase
-
-Both handle scaling automatically. Monitor usage in their dashboards. Upgrade plans as needed.
+**Add indexes for:** Agent conversation queries. The default migrations index `chats.agent_class`, `messages.role`, and `messages.created_at`. Add more based on your query patterns.
 
 ---
 
-## Background Jobs: Solid Queue → Sidekiq
+## ActionCable / WebSockets
 
-Solid Queue uses your database as the queue. Good up to ~1000 jobs/minute.
+### Default: Solid Cable
 
-### Switching
+Solid Cable uses the database as the pub/sub backend. Fine for:
+- Single server deployments
+- Low-to-moderate concurrent WebSocket connections (<500)
 
-```ruby
-# Gemfile
-gem "sidekiq"
+### When to Switch to Redis
 
-# config/application.rb
-config.active_job.queue_adapter = :sidekiq
-```
-
-Add Redis to your docker-compose and Procfile.
-
----
-
-## WebSockets at Scale
-
-### Default → Redis Adapter
+**When:** Multiple servers need to share WebSocket state, or >500 concurrent connections.
 
 ```yaml
 # config/cable.yml
 production:
   adapter: redis
-  url: <%= ENV['REDIS_URL'] %>
-  channel_prefix: railskit_production
+  url: <%= ENV["REDIS_URL"] %>
 ```
-
-### High Scale → AnyCable
-
-For 10,000+ concurrent connections:
-
-```ruby
-gem "anycable-rails"
-```
-
-AnyCable uses a Go-based WebSocket server — dramatically more efficient than Ruby ActionCable.
-
----
-
-## Agent Cost Optimization
-
-### Model Selection
-
-Not every query needs the best model:
-
-| Use Case | Model | Cost |
-|---|---|---|
-| Simple Q&A, routing | `gpt-4o-mini` | $0.15/1M input |
-| Code review, analysis | `claude-sonnet-4` | Higher, but better reasoning |
-| Creative, general | `gemini-2.0-flash` | Good balance |
-
-### Response Caching
-
-```ruby
-class FaqAgent < RubyLLM::Agent
-  def ask(message)
-    cache_key = "faq:#{Digest::SHA256.hexdigest(message.downcase.strip)}"
-    Rails.cache.fetch(cache_key, expires_in: 1.hour) { super(message) }
-  end
-end
-```
-
-### Token Limits
-
-```ruby
-class ConciseAgent < RubyLLM::Agent
-  max_tokens 500  # Prevent runaway responses
-end
-```
-
-### Monitoring
-
-Use the Agent Dashboard (`/dashboard/agents`) to identify expensive agents and conversations.
 
 ---
 
 ## Caching
 
-### Add Redis Caching
+### Default: Solid Cache
 
-```ruby
-# config/environments/production.rb
-config.cache_store = :redis_cache_store, {
-  url: ENV['REDIS_URL'],
-  expires_in: 1.hour
-}
+Database-backed cache. Simple, no extra infrastructure.
+
+### When to Switch to Redis
+
+**When:** Cache hit rate matters for performance, or you need sub-millisecond cache reads.
+
+```yaml
+# config/cache.yml (or in environment config)
+production:
+  store: redis_cache_store
+  url: <%= ENV["REDIS_URL"] %>
 ```
 
-### What to Cache
+---
+
+## AI / Agent Scaling
+
+### Token Cost Monitoring
+
+The `Message` model tracks `input_tokens` and `output_tokens` for every agent interaction. Use these to monitor costs:
 
 ```ruby
-# Expensive aggregations
-Rails.cache.fetch("dashboard:#{current_user.id}", expires_in: 5.minutes) do
-  { projects: current_user.projects.count, ... }
+# Total tokens this month
+Message.where("created_at > ?", 1.month.ago).sum(:input_tokens)
+Message.where("created_at > ?", 1.month.ago).sum(:output_tokens)
+
+# Per-agent breakdown
+Chat.group(:agent_class).joins(:messages)
+    .sum("messages.input_tokens + messages.output_tokens")
+```
+
+The agent dashboard at `/agents/costs` visualizes this data.
+
+### Model Selection
+
+Use cheaper models for simple tasks:
+
+```ruby
+# Triage agent uses a small model
+class TriageAgent
+  def initialize(conversation: nil)
+    @llm_chat = conversation ? conversation.to_llm_chat(model: "gpt-4o-mini") : RubyLLM.chat(model: "gpt-4o-mini")
+    @llm_chat.with_instructions("Classify the user's intent...")
+  end
 end
 
-# Slow-changing data
-Rails.cache.fetch("plans", expires_in: 1.hour) { Plan.all.as_json }
+# Complex analysis uses a larger model
+class AnalysisAgent
+  def initialize(conversation: nil)
+    @llm_chat = conversation ? conversation.to_llm_chat(model: "claude-opus-4-20250514") : RubyLLM.chat(model: "claude-opus-4-20250514")
+    @llm_chat.with_instructions("Provide detailed analysis...")
+  end
+end
+```
+
+### Rate Limiting (Coming Soon)
+
+Per-user and per-plan rate limiting for agent endpoints is planned. In the meantime, implement basic rate limiting with `rack-attack`:
+
+```ruby
+# Gemfile
+gem "rack-attack"
+
+# config/initializers/rack_attack.rb
+Rack::Attack.throttle("api/agents", limit: 20, period: 60) do |req|
+  if req.path.start_with?("/api/agents")
+    req.env["warden"]&.user(:user)&.id
+  end
+end
 ```
 
 ---
 
-## Horizontal Scaling
+## Frontend
 
-Rails is stateless with JWT auth. Run multiple API instances behind a load balancer.
+### Default: Vite Dev Server + Static Build
 
-Requirements:
-- Redis for ActionCable (shared across instances)
-- Redis for caching
-- Workers run separately from web processes
+The React app is a static SPA. In production, `npm run build` generates static files served from any CDN.
 
-### CDN for Frontend
+### When to Optimize
 
-React builds to static files. Serve from a CDN:
-- **Render:** Built-in CDN
-- **Cloudflare:** Put in front of your frontend
-- **AWS:** S3 + CloudFront
+**Add a CDN when:** You have global users. Cloudflare, CloudFront, or Vercel Edge work out of the box with the static build.
+
+**Add SSR when:** SEO matters for authenticated pages. For most SaaS apps, the landing page is static and dashboard pages don't need SEO — so SSR is rarely needed.
 
 ---
 
-## Recommended Monitoring
+## Deployment Scaling
 
-| Tool | Purpose | Cost |
-|---|---|---|
-| [Sentry](https://sentry.io) | Error tracking | Free tier |
-| [Scout APM](https://scoutapm.com) | Rails performance | Free for small apps |
-| [UptimeRobot](https://uptimerobot.com) | Uptime monitoring | Free for 50 monitors |
+| Scale | Approach |
+|---|---|
+| 0–1K users | Single server, Solid Queue in Puma, Solid Cable |
+| 1K–10K users | Add Redis, split background workers, add read replica |
+| 10K–100K users | Multiple web servers, load balancer, dedicated job servers, CDN |
+| 100K+ | Horizontal scaling, database sharding, dedicated AI inference |
 
-### Key Metrics
-
-- **p95 response time** — Keep under 200ms
-- **Error rate** — Should be < 0.1%
-- **Job queue depth** — Should stay near zero
-- **Agent cost/day** — Track against budget
+RailsKit's adapter pattern means you can swap components without rewriting application code.

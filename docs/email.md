@@ -1,128 +1,127 @@
 # Email System
 
-RailsKit ships with a production-ready email system — adapter-based delivery,
-branded templates, preview support, and inbound email processing.
+RailsKit ships with adapter-based email delivery, dev preview support, and inbound email processing via ActionMailbox.
 
-## Configuration
+---
 
-Set your provider in `railskit.yml`:
+## Providers
 
+Three email providers are supported out of the box:
+
+| Provider | How It Works | Required ENV |
+|---|---|---|
+| **Resend** (default) | SMTP relay via `smtp.resend.com:465` | `RESEND_API_KEY` |
+| **Postmark** | SMTP relay | `POSTMARK_API_TOKEN` |
+| **SMTP** | Bring your own server | `SMTP_ADDRESS`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD` |
+
+Set in `railskit.yml`:
 ```yaml
 email:
-  provider: "resend"  # resend | postmark | smtp
-  from: "MyApp <noreply@myapp.com>"
+  provider: "resend"
+  from: "RailsKit <noreply@yourdomain.com>"
 ```
 
-Then add the required environment variable:
+All providers use ActionMailer's SMTP delivery — no extra gems needed. The `EmailProvider` adapter translates your config into SMTP settings.
 
-| Provider  | Required ENV              |
-|-----------|---------------------------|
-| Resend    | `RESEND_API_KEY`          |
-| Postmark  | `POSTMARK_API_TOKEN`      |
-| SMTP      | `SMTP_ADDRESS`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD` |
+---
 
-## Adapters
+## How It Works
 
-The email system follows the same adapter pattern as payments. Each adapter
-lives in `app/services/email_provider/` and implements:
+### Adapter Pattern
 
-- `delivery_config` — returns `{ method:, settings: }` for ActionMailer
-- `provider_name` — human-readable identifier
-
-### Resend (default)
-
-Uses Resend's SMTP relay — no extra gems needed. Just set `RESEND_API_KEY`.
-
-### Postmark
-
-Uses Postmark's SMTP relay. Set `POSTMARK_API_TOKEN`.
-
-### Generic SMTP
-
-For Mailgun, SendGrid, AWS SES, or self-hosted servers. Configure via ENV:
-
-```bash
-SMTP_ADDRESS=smtp.mailgun.org
-SMTP_PORT=587
-SMTP_USERNAME=postmaster@mg.myapp.com
-SMTP_PASSWORD=secret
-SMTP_DOMAIN=myapp.com
+`EmailProvider::Base` defines the interface:
+```ruby
+class EmailProvider::Base
+  def delivery_config    # → { method: :smtp, settings: { ... } }
+  def provider_name      # → "Resend"
+end
 ```
 
-## Email Templates
+Each adapter implements `delivery_config` returning SMTP settings that ActionMailer consumes directly.
 
-All templates include both HTML and plain-text versions with responsive,
-branded layouts.
+### Initialization
 
-### User Emails (`UserMailer`)
+`api/config/initializers/email.rb` runs at boot:
+- **Test:** Uses `:test` delivery (no emails sent)
+- **Development:** Uses `letter_opener` if available (opens emails in browser), otherwise falls through to the configured provider
+- **Production:** Resolves the adapter from `RailsKit.config.email.provider` and configures ActionMailer
 
-| Email            | Method                           | Triggered by            |
-|------------------|----------------------------------|-------------------------|
-| Welcome          | `UserMailer.welcome(user)`       | After registration      |
-| Magic Link       | `UserMailer.magic_link(user, token:, expires_in:)` | Sign-in request |
-| Password Reset   | `UserMailer.password_reset(user, token:)` | Reset request   |
-
-### Transactional Emails (`TransactionalMailer`)
-
-| Email                    | Method                                                | Triggered by        |
-|--------------------------|-------------------------------------------------------|---------------------|
-| Subscription Confirmed   | `TransactionalMailer.subscription_confirmation(user, subscription:)` | Successful payment |
-| Invoice Receipt          | `TransactionalMailer.invoice_receipt(user, invoice:)` | Each charge         |
-
-## Previewing Emails
-
-In development, visit:
-
-```
-http://localhost:3000/rails/mailers
-```
-
-This shows all email previews powered by `test/mailers/previews/`. The
-`letter_opener` gem is also included — emails sent in dev open in your browser
-instead of actually sending.
-
-## Inbound Email (ActionMailbox)
-
-Basic ActionMailbox routing is set up in `app/mailboxes/application_mailbox.rb`.
-By default, unmatched emails go to the catch-all mailbox which logs and discards.
-
-To add a support mailbox:
+### Resend Adapter
 
 ```ruby
-# app/mailboxes/application_mailbox.rb
-routing /support@/i => :support
-
-# app/mailboxes/support_mailbox.rb
-class SupportMailbox < ApplicationMailbox
-  def process
-    # Create a support ticket from the inbound email
-    Ticket.create!(
-      from: mail.from.first,
-      subject: mail.subject,
-      body: mail.body.decoded
-    )
+module EmailProvider
+  class ResendAdapter < Base
+    def delivery_config
+      {
+        method: :smtp,
+        settings: {
+          address: "smtp.resend.com",
+          port: 465,
+          user_name: "resend",
+          password: ENV.fetch("RESEND_API_KEY"),
+          authentication: :plain,
+          ssl: true
+        }
+      }
+    end
   end
 end
 ```
 
-Configure your email provider to forward inbound emails to:
-`/rails/action_mailbox/inbound_emails` (see Rails guides for provider-specific setup).
+---
 
-## Customization
+## Development
 
-### Change the layout
+In development, emails open in your browser via `letter_opener`:
 
-Edit `app/views/layouts/mailer.html.erb`. The layout uses your theme's
-`primary_color` from `railskit.yml` for the header and buttons.
+```ruby
+# Gemfile (already included)
+group :development do
+  gem "letter_opener", "~> 1.10"
+end
+```
 
-### Change the from address
+Send a test email from the Rails console:
+```ruby
+MagicLinkMailer.login_link(User.first, "test-token").deliver_now
+# Opens in browser automatically
+```
 
-Set `email.from` in `railskit.yml`, or it defaults to
-`{app.name} <noreply@{app.domain}>`.
+---
 
-### Add a new email
+## Included Mailers
 
-1. Add the method to the appropriate mailer
-2. Create `app/views/{mailer_name}/{method}.html.erb` and `.text.erb`
-3. Add a preview in `test/mailers/previews/`
-4. Write a test in `test/mailers/`
+| Mailer | Purpose |
+|---|---|
+| `MagicLinkMailer` | Magic link login emails |
+| `TransactionalMailer` | Invoice receipts, subscription confirmations |
+| `UserMailer` | Welcome emails, password resets |
+
+---
+
+## Inbound Email
+
+RailsKit includes ActionMailbox (`gem "actionmailbox"`) for processing incoming emails. This is useful for:
+- Support ticket creation from email
+- Email-based commands
+- Reply tracking
+
+Configure your inbound email routing in `api/config/environments/production.rb` and create mailboxes in `api/app/mailboxes/`.
+
+---
+
+## Switching Providers
+
+Edit `railskit.yml` and update your ENV:
+
+```yaml
+email:
+  provider: "postmark"
+```
+
+```bash
+# .env
+POSTMARK_API_TOKEN=your-token
+```
+
+Restart `bin/dev`. No code changes needed.

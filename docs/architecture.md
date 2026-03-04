@@ -1,243 +1,257 @@
 # Architecture Overview
 
-RailsKit is a monorepo with three layers: a **Rails API backend**, a **React frontend**, and an **AI agent layer** powered by RubyLLM. They communicate over HTTP and WebSockets.
+RailsKit is a monorepo with two apps and a shared configuration layer.
 
 ---
 
-## High-Level Architecture
+## High-Level Diagram
 
 ```
-┌──────────────────────────────────────────────────────────┐
-│                        Client                            │
-│                   React + Vite (web/)                     │
-│                                                          │
-│  ┌────────────┐  ┌────────────┐  ┌─────────────────┐   │
-│  │ TanStack   │  │  Zustand   │  │  ActionCable    │   │
-│  │ Query      │  │  Store     │  │  Consumer       │   │
-│  │ (API data) │  │ (UI state) │  │ (streaming)     │   │
-│  └─────┬──────┘  └────────────┘  └────────┬────────┘   │
-│        │                                    │            │
-└────────┼────────────────────────────────────┼────────────┘
-         │ HTTP (REST/JSON)                   │ WebSocket
-         │ JWT in httpOnly cookie             │
-┌────────┼────────────────────────────────────┼────────────┐
-│        ▼                                    ▼            │
-│  ┌────────────┐                    ┌──────────────┐     │
-│  │ Controllers│                    │ ActionCable  │     │
-│  │ /api/v1/*  │                    │ Channels     │     │
-│  └─────┬──────┘                    └──────┬───────┘     │
-│        │                                   │             │
-│  ┌─────┴──────────────────────────────────┴──────┐      │
-│  │              Rails Application                 │      │
-│  │                                                │      │
-│  │  Models  │  Services  │  Agents  │  Tools     │      │
-│  │  (AR)    │  (biz)     │  (LLM)   │  (fn call) │      │
-│  └─────┬──────────────────────┬───────────────────┘      │
-│        │                      │                          │
-│  ┌─────▼──────┐   ┌──────────▼──────────┐              │
-│  │  Database  │   │  LLM Providers      │              │
-│  │  Adapter   │   │  (OpenAI, Anthropic, │              │
-│  │            │   │   Google, Ollama)    │              │
-│  └────────────┘   └─────────────────────┘              │
-│                                                          │
-│                   Rails 8 API (api/)                      │
-└──────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│  Browser (React 19 + Vite)          http://localhost:5173   │
+│  ├── Auth flows (sign up, login, magic link, Google OAuth)  │
+│  ├── Dashboard (billing, settings)                          │
+│  ├── Landing page (hero, pricing, FAQ)                      │
+│  └── Agent chat UI (HelpDeskChat, custom agents)            │
+└────────────────┬─────────────────────┬──────────────────────┘
+                 │ HTTP (JSON)         │ WebSocket
+                 ▼                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Rails 8 API                        http://localhost:3000   │
+│  ├── /api/auth/*        Devise + JWT auth                   │
+│  ├── /api/plans         Plan listing                        │
+│  ├── /api/checkout      Stripe Checkout session             │
+│  ├── /api/billing-portal Stripe Customer Portal             │
+│  ├── /api/webhooks/stripe  Stripe webhook handler           │
+│  ├── /api/agents/:name/chat   Non-streaming agent chat      │
+│  ├── /api/agents/:name/stream Streaming agent chat          │
+│  └── ActionCable (AgentChatChannel) WebSocket streaming     │
+├─────────────────────────────────────────────────────────────┤
+│  AI Layer (RubyLLM)                                         │
+│  ├── Agent classes (app/agents/)                            │
+│  ├── Tool classes (app/tools/)                              │
+│  └── Schemas (app/schemas/) for structured output           │
+├─────────────────────────────────────────────────────────────┤
+│  Data Layer                                                 │
+│  ├── PostgreSQL (default) / Supabase / Convex               │
+│  ├── Solid Queue (background jobs)                          │
+│  ├── Solid Cable (ActionCable adapter)                      │
+│  └── Solid Cache (Rails.cache)                              │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## The Three Layers
+## Configuration Flow
 
-### 1. Rails API (`api/`)
+`railskit.yml` at the project root is the single source of truth. It's read by:
 
-A Rails 8 API-only application. No views, no asset pipeline, no Sprockets. Pure JSON API.
+1. **`RailsKit` module** (`api/config/initializers/railskit.rb`) — provides `RailsKit.config` with dot-notation access
+2. **Frontend config** (`web/src/config.ts`) — imports a generated JSON file or falls back to defaults
+3. **Initializers** — `ruby_llm.rb`, `stripe.rb`, `email.rb`, `database_adapter.rb` all read from `RailsKit.config`
 
-**Key directories:**
+```ruby
+# Accessing config in Rails
+RailsKit.config.app.name        # => "RailsKit"
+RailsKit.config.ai.provider     # => "openai"
+RailsKit.config.ai.model        # => "gpt-4o"
+RailsKit.config.auth.provider   # => "devise"
+RailsKit.config.payments.provider # => "stripe"
+```
 
-| Path | Purpose |
+Generate the frontend JSON config:
+```bash
+cd api && bin/rails railskit:generate_frontend_config
+# Writes web/src/railskit.generated.json
+```
+
+---
+
+## Authentication
+
+Default: **Devise + JWT** with httpOnly cookies.
+
+### Flow
+
+1. Client POSTs to `/api/auth/login` with `{ user: { email, password } }`
+2. Devise authenticates, `devise-jwt` generates a JWT
+3. The `JwtCookie` concern sets an httpOnly cookie (`jwt`) on the response
+4. Subsequent requests include the cookie automatically
+5. `ApplicationController#set_jwt_from_cookie` copies it to the `Authorization` header for Devise-JWT
+
+### Auth Methods
+
+| Method | Endpoint | Description |
+|---|---|---|
+| Email/password signup | `POST /api/auth/signup` | Creates user, returns JWT |
+| Email/password login | `POST /api/auth/login` | Returns JWT |
+| Logout | `DELETE /api/auth/logout` | Revokes JWT (denylist), clears cookie |
+| Current user | `GET /api/auth/me` | Returns user profile |
+| Google OAuth | `GET /api/auth/users/auth/google_oauth2` | Redirects to Google, then `/auth/callback` |
+| Magic link request | `POST /api/auth/magic_link` | Sends email with login link |
+| Magic link verify | `POST /api/auth/magic_link/verify` | Exchanges token for JWT |
+
+### Pluggable Providers
+
+Auth providers are defined in `lib/auth_providers/`. The default is `DeviseJwtProvider`. Supabase and Clerk provider stubs exist — implement the `Base` interface to swap.
+
+Set via `railskit.yml`:
+```yaml
+auth:
+  provider: "devise"    # devise | supabase | clerk
+  google_oauth: true
+  magic_links: true
+```
+
+---
+
+## AI Agent Architecture
+
+Agents are plain Ruby classes in `app/agents/`. They use RubyLLM for LLM interaction.
+
+### Request Flow (Non-Streaming)
+
+```
+Client POST /api/agents/help_desk/chat { message: "..." }
+  → AgentsController#chat
+    → HelpDeskAgent.new(conversation:).ask(message)
+      → RubyLLM.chat.ask(message)   # calls OpenAI/Anthropic/etc.
+    ← response.content
+  ← JSON { response, conversation_id, model, usage }
+```
+
+### Request Flow (Streaming)
+
+```
+Client POST /api/agents/help_desk/stream { message: "..." }
+  → AgentsController#stream_chat
+    → Persists user message
+    → Enqueues AgentStreamJob
+  ← JSON { conversation_id }
+
+Client subscribes to AgentChatChannel (WebSocket)
+
+AgentStreamJob runs:
+  → agent.stream(message) { |chunk| broadcast chunk }
+  → Broadcasts: stream_start → stream_token* → stream_end
+  → Persists full assistant message
+```
+
+### Conversation Persistence
+
+- **Chat** model — represents a conversation. Has `agent_class`, `model_id`, optional `user` reference
+- **Message** model — belongs to Chat. Stores `role` (system/user/assistant/tool), `content`, `input_tokens`, `output_tokens`, `tool_calls`, `tool_result`
+- **ActsAsChat** concern — provides `to_llm_chat` (reconstructs RubyLLM chat from persisted messages), `persist_message`, `persist_exchange`
+- Both use UUID primary keys
+
+---
+
+## Payments
+
+Stripe is the default. The flow:
+
+1. `GET /api/plans` — returns available plans (seeded from `db/seeds/plans.rb`)
+2. `POST /api/checkout` — creates Stripe Checkout Session, returns redirect URL
+3. User completes payment on Stripe
+4. `POST /api/webhooks/stripe` — handles `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed`
+5. Creates/updates `Subscription` records
+
+Models: `Plan` (name, slug, stripe_price_id, interval, amount_cents, features JSONB) and `Subscription` (links user + plan + Stripe IDs + status).
+
+A `Billable` concern provides `user.active_subscription`, `user.subscribed?`, `user.feature?(:key)`.
+
+---
+
+## Email
+
+Adapter-based delivery via `EmailProvider`. Three providers ship:
+
+| Provider | How it works |
 |---|---|
-| `app/controllers/api/v1/` | Versioned API endpoints |
-| `app/models/` | ActiveRecord models (User, Plan, Subscription, Chat) |
-| `app/agents/` | RubyLLM agent classes |
-| `app/tools/` | RubyLLM tool classes (function calling) |
-| `app/services/` | Business logic (StripeService, EmailService) |
-| `app/jobs/` | Background jobs via Solid Queue |
-| `app/mailers/` | Transactional email templates |
-| `app/channels/` | ActionCable channels for real-time streaming |
-| `config/railskit.yml` | Generated configuration (from root `railskit.yml`) |
+| Resend | SMTP relay (no extra gem needed) |
+| Postmark | SMTP relay |
+| SMTP | Bring your own server |
 
-**Request flow:**
-
-```
-HTTP Request → Rack Middleware → Router → Controller → Service/Model → JSON Response
+Configured in `railskit.yml`:
+```yaml
+email:
+  provider: "resend"   # resend | postmark | smtp
 ```
 
-Authentication is handled by Devise with JWT tokens stored in httpOnly cookies. Every authenticated request includes the cookie automatically — no `Authorization` header management on the frontend.
+Mailers included: `MagicLinkMailer`, `TransactionalMailer` (invoice receipt, subscription confirmation), `UserMailer` (welcome, password reset, magic link).
 
-### 2. React Frontend (`web/`)
-
-A standalone React + Vite application. Completely decoupled from Rails — communicates only via API calls and WebSockets.
-
-**Key directories:**
-
-| Path | Purpose |
-|---|---|
-| `src/components/ui/` | shadcn/ui primitives (Button, Card, Dialog) |
-| `src/components/landing/` | Landing page sections (Hero, Pricing, FAQ) |
-| `src/components/dashboard/` | Dashboard components (Sidebar, StatCard) |
-| `src/pages/` | Route-level page components |
-| `src/hooks/` | Custom hooks (`useAuth`, `useUser`, `useAgent`) |
-| `src/lib/api.ts` | Axios wrapper with auth handling |
-| `src/lib/config.ts` | Frontend config (mirrors railskit.yml) |
-| `src/stores/` | Zustand stores (UI state, theme) |
-
-**Data flow:**
-
-```
-Component → useQuery hook → api.ts (Axios) → Rails API → Response → TanStack Query cache → Re-render
-```
-
-Server state lives in TanStack Query's cache. Client-only state (theme, sidebar open/closed) lives in Zustand stores. This separation means you never mix API data with UI state.
-
-### 3. AI Agent Layer
-
-The agent layer bridges Rails and LLM providers via RubyLLM.
-
-**How agents work:**
-
-```
-User sends message
-    → AgentChannel receives via WebSocket
-    → Loads Chat (acts_as_chat)
-    → Dispatches to Agent class
-    → Agent calls LLM provider
-    → LLM may invoke Tools (function calling)
-    → Tool executes (DB query, API call, etc.)
-    → Response streams back chunk-by-chunk
-    → ActionCable broadcasts chunks to React
-    → React renders streaming response
-```
-
-**Conversation persistence:**
-
-Every conversation is stored in the database via RubyLLM's `acts_as_chat`. The `Chat` model automatically tracks messages, tool calls, token usage, and costs. This works across all database backends (Convex, Supabase, PostgreSQL).
-
----
-
-## API Communication
-
-### REST Endpoints
-
-All API endpoints are versioned under `/api/v1/`:
-
-```
-POST   /api/v1/auth/sign_in          # Login
-POST   /api/v1/auth/sign_up          # Register
-DELETE /api/v1/auth/sign_out          # Logout
-GET    /api/v1/me                     # Current user
-PATCH  /api/v1/me                     # Update profile
-GET    /api/v1/plans                  # List plans
-POST   /api/v1/checkout               # Create Stripe checkout session
-POST   /api/v1/webhooks/stripe        # Stripe webhooks
-GET    /api/v1/chats                  # List conversations
-POST   /api/v1/chats                  # Start new conversation
-GET    /api/v1/chats/:id/messages     # Conversation history
-GET    /api/health                    # Health check
-```
-
-### WebSocket (ActionCable)
-
-Used for real-time features:
-
-- **Agent streaming** — LLM response chunks broadcast as they arrive
-- **Presence** — (v2) who's online
-- **Notifications** — (v2) in-app notifications
-
-The React app connects via `@rails/actioncable` and subscribes to channels. The Vite dev server proxies `/api` requests to Rails on port 3000.
-
-### Authentication Flow
-
-```
-1. User submits login form (React)
-2. POST /api/v1/auth/sign_in with email + password
-3. Rails validates via Devise, generates JWT
-4. JWT returned in Set-Cookie header (httpOnly, Secure, SameSite=Strict)
-5. All subsequent requests include cookie automatically
-6. Rails middleware extracts JWT, loads user
-7. Logout: DELETE /api/v1/auth/sign_out clears the cookie
-```
-
-**Why httpOnly cookies over localStorage:** Immune to XSS attacks. The JavaScript can never read the token — the browser handles it automatically. This is the secure default.
+In development, `letter_opener` opens emails in the browser.
 
 ---
 
 ## Database Adapters
 
-RailsKit supports three database backends. The choice is made during `bin/setup` and stored in `railskit.yml`.
+The `DatabaseAdapter` module provides a pluggable CRUD interface:
 
+| Adapter | How it works |
+|---|---|
+| PostgreSQL | Thin wrapper around ActiveRecord |
+| Supabase | Calls Supabase PostgREST API via HTTP |
+| Convex | Calls Convex HTTP API |
+
+Set in `railskit.yml`:
+```yaml
+database:
+  adapter: "postgresql"   # postgresql | supabase | convex
 ```
-app/adapters/
-├── convex_adapter.rb
-├── supabase_adapter.rb
-└── postgres_adapter.rb
+
+**Note:** ActiveRecord models (User, Chat, Message, Plan, Subscription) use standard Rails migrations and work directly with PostgreSQL. The adapter layer is for custom tables where you want database-agnostic access.
+
+The migration generator is adapter-aware:
+```bash
+bin/rails generate migration CreateProducts name:string price:decimal
+# PostgreSQL → standard ActiveRecord migration
+# Supabase  → raw SQL migration file
+# Convex    → TypeScript schema stub
 ```
-
-| Feature | Convex | Supabase | PostgreSQL |
-|---|---|---|---|
-| Real-time | Built-in | Built-in | ActionCable |
-| Migrations | Schema definitions | SQL migrations | SQL migrations |
-| Hosting | Managed (convex.dev) | Managed (supabase.com) | Self-managed |
-| Best for | Speed, prototyping | Postgres + hosted | Full control |
-
-Models use the adapter layer for database-specific operations. Standard ActiveRecord works for Postgres and Supabase. Convex uses a thin HTTP adapter.
 
 ---
 
-## Background Jobs
+## Frontend Architecture
 
-Solid Queue (Rails 8 default) handles background processing using the database as the queue backend. No Redis required.
+React 19 + Vite 7 + TailwindCSS v4 + React Router.
 
-**Common jobs:**
+### Key Routes
 
-| Job | Trigger | Purpose |
+| Path | Component | Auth Required |
 |---|---|---|
-| `StripeWebhookJob` | Stripe webhook | Process payment events |
-| `WelcomeEmailJob` | User registration | Send welcome email |
-| `AgentCostTrackingJob` | Agent response complete | Aggregate token costs |
+| `/` | LandingPage | No |
+| `/login` | SignInPage | No |
+| `/signup` | SignUpPage | No |
+| `/auth/magic-link` | MagicLinkPage | No |
+| `/auth/magic-link/verify` | MagicLinkVerifyPage | No |
+| `/auth/callback` | OAuthCallbackPage | No |
+| `/dashboard` | DashboardPage | Yes |
+| `/dashboard/settings` | SettingsPage | Yes |
+| `/dashboard/billing` | BillingPage | Yes |
+| `/agents` | DashboardOverview | No |
+| `/agents/conversations` | ConversationList | No |
+| `/agents/conversations/:id` | ConversationView | No |
+| `/agents/costs` | CostTracking | No |
+| `/agents/tools` | ToolUsage | No |
 
-**When to upgrade to Sidekiq + Redis:** If you're processing more than ~1000 jobs/minute. See the [Scaling Guide](scaling.md).
+### Auth Context
 
----
+`AuthContext` wraps the app and provides: `user`, `signIn`, `signUp`, `signOut`, `requestMagicLink`, `verifyMagicLink`, `updateProfile`, `refreshUser`.
 
-## CORS Configuration
+The `AuthGuard` component protects routes that require authentication.
 
-Since the API and frontend run on different ports (and potentially different domains in production), CORS is configured in `config/initializers/cors.rb`:
+### Agent Streaming Hook
 
-```ruby
-Rails.application.config.middleware.insert_before 0, Rack::Cors do
-  allow do
-    origins ENV.fetch("FRONTEND_URL", "http://localhost:5173")
-    resource "/api/*",
-      headers: :any,
-      methods: [:get, :post, :put, :patch, :delete, :options],
-      credentials: true  # Required for httpOnly cookies
-  end
-end
-```
+`useAgentStream` handles the full streaming lifecycle:
+1. POSTs to `/api/agents/:name/stream`
+2. Subscribes to `AgentChatChannel` via ActionCable
+3. Receives `stream_start` → `stream_token*` → `stream_end` events
+4. Provides `sendMessage`, `isStreaming`, `streamContent` to components
 
-The `credentials: true` setting is critical — without it, cookies won't be sent cross-origin.
+### API Client
 
----
-
-## Dev Environment
-
-`bin/dev` starts everything via foreman/overmind:
-
-```
-# Procfile.dev
-api: cd api && bin/rails server -p 3000
-web: cd web && npx vite --port 5173
-worker: cd api && bin/rails solid_queue:start
-```
-
-Hot module replacement (HMR) works on the React side via Vite. Rails reloads on file changes automatically in development. Vite proxies `/api` requests to Rails so you don't deal with CORS locally.
+`web/src/lib/api.ts` provides a typed HTTP client that:
+- Prefixes all paths with `VITE_API_URL`
+- Sends `credentials: "include"` for httpOnly cookie auth
+- Exports `authApi` with methods for all auth endpoints

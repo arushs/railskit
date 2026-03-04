@@ -1,13 +1,6 @@
 # Build Your First Agent in 5 Minutes
 
-This guide walks you through creating an AI agent with RailsKit — from scaffold to working chat interface.
-
----
-
-## Prerequisites
-
-- RailsKit set up and running (`bin/dev`)
-- At least one AI provider configured in `railskit.yml` (OpenAI, Anthropic, or Google)
+Create an AI agent with RailsKit — from scaffold to working chat interface.
 
 ---
 
@@ -15,159 +8,229 @@ This guide walks you through creating an AI agent with RailsKit — from scaffol
 
 ```bash
 cd api
-bin/rails generate agent HelpDesk
+bin/rails generate agent CustomerSupport
 ```
 
 This creates three files:
 
 ```
-api/app/agents/help_desk_agent.rb          # Agent class
-api/test/agents/help_desk_agent_test.rb    # Test
-web/src/pages/agents/HelpDesk.tsx          # React chat UI
+api/app/agents/customer_support_agent.rb        # Agent class
+web/src/components/agents/CustomerSupportChat.tsx # React chat component
+api/test/agents/customer_support_agent_test.rb   # Test file
 ```
 
-## 2. Define the Agent
+## 2. Customize the Agent
 
-Open `api/app/agents/help_desk_agent.rb`:
+Open `api/app/agents/customer_support_agent.rb`:
 
 ```ruby
-class HelpDeskAgent < RubyLLM::Agent
-  model "claude-sonnet-4"  # or "gpt-4o", "gemini-2.0-flash", etc.
+# frozen_string_literal: true
 
-  instructions <<~PROMPT
-    You are a helpful support agent for #{RailsKit.config.app.name}.
-    
-    Be concise and friendly. If you don't know something, say so.
-    Always try to help the user solve their problem.
+class CustomerSupportAgent
+  SYSTEM_PROMPT = <<~PROMPT
+    You are CustomerSupport, a helpful AI assistant.
+    Be concise, friendly, and professional.
   PROMPT
 
-  # Tools the agent can use (we'll add these next)
-  tools LookupUser, SearchDocs
+  attr_reader :llm_chat
+
+  def initialize(conversation: nil, model: nil)
+    @conversation = conversation
+    @llm_chat = conversation ? conversation.to_llm_chat(model: model) : RubyLLM.chat(model: model)
+    @llm_chat.with_instructions(SYSTEM_PROMPT)
+    register_tools
+  end
+
+  def ask(message)
+    response = @llm_chat.ask(message)
+    @conversation&.persist_exchange(user_content: message, response: response)
+    response
+  end
+
+  private
+
+  def register_tools
+    # @llm_chat.with_tool(SomeSearchTool)
+  end
 end
+```
+
+Customize the `SYSTEM_PROMPT` to define your agent's personality and behavior:
+
+```ruby
+SYSTEM_PROMPT = <<~PROMPT
+  You are a customer support agent for Acme Corp.
+  You help users with account issues, billing questions, and product support.
+  Always check the knowledge base before asking the user for more info.
+  If you can't resolve an issue, offer to create a support ticket.
+PROMPT
 ```
 
 ## 3. Create a Tool
 
-Tools give your agent the ability to take actions — query databases, call APIs, look up information.
+Tools let your agent take actions — search databases, call APIs, look up records.
 
 ```bash
-bin/rails generate tool LookupUser
+bin/rails generate tool ProductSearch
 ```
 
-Edit `api/app/tools/lookup_user.rb`:
+This creates:
+```
+api/app/tools/product_search_tool.rb
+api/test/tools/product_search_tool_test.rb
+```
+
+Open `api/app/tools/product_search_tool.rb`:
 
 ```ruby
-class LookupUser < RubyLLM::Tool
-  description "Look up a user's account details by email address"
+# frozen_string_literal: true
 
-  param :email, desc: "The user's email address", required: true
+class ProductSearchTool < RubyLLM::Tool
+  description "Search the product catalog by name or category."
+  param :query, type: :string, desc: "Search query", required: true
+  param :category, type: :string, desc: "Product category to filter by"
 
-  def execute(email:)
-    user = User.find_by(email: email)
-    return { error: "No user found with that email" } unless user
-
-    {
-      name: user.name,
-      email: user.email,
-      plan: user.plan.name,
-      created_at: user.created_at.strftime("%B %d, %Y"),
-      subscription_status: user.subscription&.status || "none"
-    }
+  def execute(query:, category: nil)
+    products = Product.where("name ILIKE ?", "%#{query}%")
+    products = products.where(category: category) if category
+    products.limit(5).map { |p| { name: p.name, price: p.price, url: p.url } }
   end
 end
 ```
 
-Create another tool:
+### Tool API Reference
 
-```bash
-bin/rails generate tool SearchDocs
-```
+Tools extend `RubyLLM::Tool` and define:
+
+- **`description`** — what the tool does (the LLM reads this to decide when to call it)
+- **`param`** — input parameters with `type:`, `desc:`, and optional `required: true`
+- **`execute`** — the method that runs when the LLM calls the tool. Receives keyword arguments matching the defined params. Return a Hash or Array (serialized to JSON for the LLM).
+
+Supported types: `:string`, `:integer`, `:number`, `:boolean`, `:array`, `:object`
+
+## 4. Register the Tool
+
+Back in your agent, register the tool:
 
 ```ruby
-class SearchDocs < RubyLLM::Tool
-  description "Search the knowledge base for help articles"
-
-  param :query, desc: "The search query", required: true
-
-  def execute(query:)
-    # Replace with your actual search logic
-    articles = HelpArticle.search(query).limit(3)
-
-    articles.map do |a|
-      { title: a.title, url: a.url, excerpt: a.excerpt }
-    end
-  end
+def register_tools
+  @llm_chat.with_tool(ProductSearchTool)
 end
 ```
 
-## 4. Wire Up the API
-
-The agent generator creates a controller endpoint automatically. The default route is:
-
-```
-POST /api/v1/agents/help_desk/chat
-```
-
-The controller handles:
-- Creating/loading a conversation (`Chat` model with `acts_as_chat`)
-- Dispatching the user's message to the agent
-- Streaming the response back via ActionCable
-
-## 5. Try It Out
-
-Open [http://localhost:5173/agents/help-desk](http://localhost:5173/agents/help-desk).
-
-You'll see a chat interface. Type a message. The agent responds in real-time with streaming text.
-
-Try: *"Look up the account for john@example.com"* — the agent calls the `LookupUser` tool automatically.
-
-## 6. Test in the Console
-
-```bash
-cd api && bin/rails console
-```
+You can register multiple tools:
 
 ```ruby
-chat = Chat.create!(agent_class: "HelpDeskAgent")
-response = chat.ask("What can you help me with?")
-puts response.content
+def register_tools
+  @llm_chat.with_tool(ProductSearchTool)
+  @llm_chat.with_tool(TicketLookupTool)
+  @llm_chat.with_tool(OrderStatusTool)
+end
 ```
+
+## 5. Test It
+
+### Via curl (non-streaming)
+
+```bash
+curl -X POST http://localhost:3000/api/agents/customer_support/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "What products do you have in the electronics category?"}'
+```
+
+Response:
+```json
+{
+  "response": "Here are our top electronics products...",
+  "conversation_id": "a1b2c3d4-...",
+  "model": "gpt-4o",
+  "usage": {
+    "input_tokens": 150,
+    "output_tokens": 89
+  }
+}
+```
+
+### Via curl (streaming)
+
+```bash
+curl -X POST http://localhost:3000/api/agents/customer_support/stream \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Help me find a product"}'
+```
+
+Response:
+```json
+{
+  "conversation_id": "a1b2c3d4-..."
+}
+```
+
+Then subscribe to `AgentChatChannel` via ActionCable with `{ conversation_id: "a1b2c3d4-..." }` to receive streamed tokens.
+
+### Continue a conversation
+
+Pass `conversation_id` to maintain context:
+
+```bash
+curl -X POST http://localhost:3000/api/agents/customer_support/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Tell me more about the first one", "conversation_id": "a1b2c3d4-..."}'
+```
+
+## 6. Use the React Chat Component
+
+The generator creates a chat component at `web/src/components/agents/CustomerSupportChat.tsx`. It uses the `useAgentStream` hook for real-time streaming.
+
+To add it to a page:
+
+```tsx
+import { CustomerSupportChat } from "@/components/agents/CustomerSupportChat";
+
+export default function SupportPage() {
+  return (
+    <div className="h-screen">
+      <CustomerSupportChat />
+    </div>
+  );
+}
+```
+
+The chat component handles:
+- Sending messages via POST to `/api/agents/customer_support/stream`
+- Subscribing to ActionCable for streamed tokens
+- Displaying messages with streaming animations
+- Auto-scrolling to latest messages
 
 ---
 
-## How It Works Under the Hood
+## How It All Connects
 
 ```
 User types message in React
-    ↓
-WebSocket sends to AgentChannel (ActionCable)
-    ↓
-AgentChannel loads the Chat (acts_as_chat)
-    ↓
-Chat dispatches to HelpDeskAgent
-    ↓
-Agent sends message + history to LLM provider
-    ↓
-LLM decides to call a tool (e.g., LookupUser)
-    ↓
-Tool executes, returns result to LLM
-    ↓
-LLM generates final response
-    ↓
-Response streams back chunk-by-chunk via ActionCable
-    ↓
-React renders each chunk as it arrives
-```
+  → useAgentStream.sendMessage("customer_support", message)
+    → POST /api/agents/customer_support/stream
+      → AgentsController#stream_chat
+        → Persists user message to Chat/Messages
+        → Enqueues AgentStreamJob
+      ← { conversation_id }
+    → Subscribes to AgentChatChannel(conversation_id)
 
-Every message, tool call, and response is automatically persisted. Token usage and costs are tracked per conversation.
+AgentStreamJob runs in Solid Queue:
+  → CustomerSupportAgent.new(conversation:).stream(message)
+    → RubyLLM streams response, calling tools as needed
+    → Each token broadcasted via ActionCable
+  → Persists full assistant message with token counts
+
+React receives:
+  stream_start → stream_token ("Here") → stream_token ("'s") → ... → stream_end
+  Updates UI in real-time
+```
 
 ---
 
 ## Next Steps
 
-- **Add more tools** — `bin/rails generate tool <Name>`
-- **Create more agents** — `bin/rails generate agent <Name>`
-- **Customize the chat UI** — Edit `web/src/pages/agents/HelpDesk.tsx`
-- **Switch models** — Change `model "claude-sonnet-4"` to any RubyLLM-supported model
-- **View costs** — Check the Agent Dashboard at `/dashboard/agents`
-- **Read the full guide** — [Agent Development Guide](agents.md)
+- **Add structured output** — See [Agent Development Guide](agents.md) for schemas
+- **Built-in example** — Study `HelpDeskAgent` with three tools (TicketLookup, KnowledgeSearch, OrderStatus)
+- **Multiple models** — Pass `model:` to the agent constructor: `CustomerSupportAgent.new(model: "claude-sonnet-4-20250514")`
