@@ -1,0 +1,14 @@
+Payment received
+
+Thanks for your payment, <%= @user.try(:name) || @user.email.split("@").first %>. Here's your receipt.
+
+Invoice #: <%= @invoice[:number] || @invoice.try(:number) || "—" %>
+Date: <%= (@invoice[:date] || @invoice.try(:date) || Date.current).strftime("%B %d, %Y") %>
+Amount: <%= @invoice[:amount] || @invoice.try(:amount) || "—" %>
+Description: <%= @invoice[:description] || @invoice.try(:description) || "Subscription" %>
+
+<% if @invoice[:receipt_url] || @invoice.try(:receipt_url) %>
+View full receipt: <%= @invoice[:receipt_url] || @invoice.try(:receipt_url) %>
+<% end %>
+
+This is an automated receipt. No action is required.

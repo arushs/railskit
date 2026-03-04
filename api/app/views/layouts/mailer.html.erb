@@ -2,12 +2,56 @@
 <html>
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-      /* Email styles need to be inline */
+      /* Reset */
+      body, table, td, p, a { margin: 0; padding: 0; }
+      body { width: 100% !important; -webkit-text-size-adjust: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+      table { border-collapse: collapse; }
+      img { border: 0; outline: none; text-decoration: none; }
+
+      /* Layout */
+      .wrapper { background-color: #f4f4f7; padding: 40px 0; }
+      .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08); }
+      .header { background-color: <%= RailsKit.config.theme.primary_color %>; padding: 24px 40px; }
+      .header h1 { color: #ffffff; font-size: 20px; font-weight: 600; margin: 0; }
+      .content { padding: 40px; color: #333333; font-size: 16px; line-height: 1.6; }
+      .content h2 { font-size: 22px; font-weight: 600; color: #1a1a2e; margin: 0 0 16px 0; }
+      .content p { margin: 0 0 16px 0; }
+      .footer { padding: 24px 40px; text-align: center; color: #999999; font-size: 13px; border-top: 1px solid #eeeeee; }
+      .footer a { color: #999999; }
+
+      /* Button */
+      .btn { display: inline-block; padding: 14px 32px; background-color: <%= RailsKit.config.theme.primary_color %>; color: #ffffff !important; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px; margin: 8px 0 24px 0; }
+
+      /* Utility */
+      .muted { color: #888888; font-size: 14px; }
+      .divider { border: none; border-top: 1px solid #eeeeee; margin: 24px 0; }
     </style>
   </head>
 
   <body>
-    <%= yield %>
+    <div class="wrapper">
+      <table class="container" width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          <td class="header">
+            <h1><%= RailsKit.config.app.name %></h1>
+          </td>
+        </tr>
+        <tr>
+          <td class="content">
+            <%= yield %>
+          </td>
+        </tr>
+        <tr>
+          <td class="footer">
+            <p>&copy; <%= Date.current.year %> <%= RailsKit.config.app.name %>. All rights reserved.</p>
+            <p style="margin-top: 8px;">
+              <a href="<%= root_url %>"><%= RailsKit.config.app.domain %></a>
+            </p>
+          </td>
+        </tr>
+      </table>
+    </div>
   </body>
 </html>

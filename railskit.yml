@@ -15,6 +15,7 @@ payments:
 
 email:
   provider: "resend"  # resend | postmark | smtp
+  from: "RailsKit <noreply@yourdomain.com>"
 
 ai:
   provider: "openai"  # openai | anthropic | google | ollama
