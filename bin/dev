@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+if command -v overmind &> /dev/null; then
+  exec overmind start -f Procfile.dev "$@"
+elif command -v foreman &> /dev/null; then
+  exec foreman start -f Procfile.dev "$@"
+else
+  echo "Starting API and Web concurrently..."
+  trap 'kill 0' EXIT
+  (cd api && bin/rails server -p 3000) &
+  (cd web && npm run dev) &
+  wait
+fi
