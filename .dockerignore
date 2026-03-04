@@ -1,0 +1,60 @@
+# Git
+.git
+.gitignore
+
+# CI/CD
+.github
+.gitlab-ci.yml
+
+# Documentation
+docs/
+*.md
+LICENSE
+
+# Development configs
+docker-compose.yml
+docker-compose.*.yml
+Procfile.dev
+fly.toml
+render.yaml
+railskit.yml
+
+# Environment files (secrets)
+.env
+.env.*
+!.env.example
+
+# Editor / IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Ruby / Rails development
+api/tmp/
+api/log/
+api/.bundle/
+api/vendor/bundle/
+api/coverage/
+api/test/
+api/spec/
+api/storage/
+api/node_modules/
+
+# Web development artifacts (built in Docker)
+web/node_modules/
+web/dist/
+web/.vite/
+
+# Kamal
+api/.kamal/
+
+# Docker
+Dockerfile
+Dockerfile.*
+!Dockerfile.production

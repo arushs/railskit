@@ -1,0 +1,60 @@
+# Fly.io deployment configuration for RailsKit
+# https://fly.io/docs/reference/configuration/
+#
+# Deploy:
+#   fly launch --copy-config --no-deploy
+#   fly deploy
+
+app = "railskit"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile.production"
+
+[env]
+  RAILS_ENV = "production"
+  RAILS_LOG_TO_STDOUT = "true"
+  RAILS_SERVE_STATIC_FILES = "true"
+  RAILS_MAX_THREADS = "3"
+  WEB_CONCURRENCY = "2"
+  SOLID_QUEUE_IN_PUMA = "true"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = "suspend"
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+  [http_service.concurrency]
+    type = "requests"
+    hard_limit = 250
+    soft_limit = 200
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
+  cpu_kind = "shared"
+
+[checks]
+  [checks.health]
+    port = 3000
+    type = "http"
+    interval = "15s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/up"
+
+[deploy]
+  release_command = "bin/rails db:prepare"
+  strategy = "rolling"
+
+[metrics]
+  port = 9394
+  path = "/metrics"
+
+[[statics]]
+  guest_path = "/app/public"
+  url_prefix = "/"
