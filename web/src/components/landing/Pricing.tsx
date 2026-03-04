@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 import {
   Card,
   CardHeader,
@@ -9,17 +9,11 @@ import {
   CardFooter,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { api } from "@/lib/api";
 
 /**
- * Pricing — Where visitors become customers.
- *
- * Copywriting tips:
- * - 3 tiers is the sweet spot. Free / Pro / Team.
- * - Highlight the middle tier (most popular) — that's your cash cow.
- * - Annual toggle should show savings prominently ("Save 20%").
- * - Feature lists: lead with what the user GETS, not technical specs.
- * - CTA on each card. Free = "Start free", Paid = "Get started".
- * - "Most popular" badge creates social proof + anchoring.
+ * Pricing — wired to Stripe Checkout via POST /api/checkout.
+ * CTA buttons create a Checkout Session and redirect to Stripe-hosted checkout.
  */
 
 interface Tier {
@@ -27,17 +21,22 @@ interface Tier {
   description: string;
   monthlyPrice: number;
   annualPrice: number;
+  monthlyPriceId: string;
+  annualPriceId: string;
   features: string[];
   cta: string;
   highlighted: boolean;
 }
 
+// Replace price IDs with your actual Stripe price IDs
 const TIERS: Tier[] = [
   {
     name: "Starter",
     description: "For solo devs and side projects",
     monthlyPrice: 0,
     annualPrice: 0,
+    monthlyPriceId: "",
+    annualPriceId: "",
     features: [
       "Full monorepo scaffold",
       "Rails 8 API + React 19",
@@ -54,6 +53,8 @@ const TIERS: Tier[] = [
     description: "For devs who ship fast",
     monthlyPrice: 49,
     annualPrice: 39,
+    monthlyPriceId: "price_pro_monthly",
+    annualPriceId: "price_pro_annual",
     features: [
       "Everything in Starter",
       "Auth + JWT + OAuth",
@@ -71,6 +72,8 @@ const TIERS: Tier[] = [
     description: "For teams building products",
     monthlyPrice: 149,
     annualPrice: 119,
+    monthlyPriceId: "price_team_monthly",
+    annualPriceId: "price_team_annual",
     features: [
       "Everything in Pro",
       "Multi-tenant architecture",
@@ -88,6 +91,34 @@ const TIERS: Tier[] = [
 
 export default function Pricing() {
   const [annual, setAnnual] = useState(true);
+  const [loadingTier, setLoadingTier] = useState<string | null>(null);
+
+  async function handleCheckout(tier: Tier) {
+    if (tier.monthlyPrice === 0) {
+      window.location.href = "/signup";
+      return;
+    }
+
+    const priceId = annual ? tier.annualPriceId : tier.monthlyPriceId;
+    if (!priceId) return;
+
+    setLoadingTier(tier.name);
+    try {
+      const { data, ok } = await api.post<{ url: string }>("/api/checkout", {
+        price_id: priceId,
+      });
+
+      if (ok && data.url) {
+        window.location.href = data.url;
+      } else {
+        window.location.href = `/login?redirect=/pricing`;
+      }
+    } catch {
+      window.location.href = `/login?redirect=/pricing`;
+    } finally {
+      setLoadingTier(null);
+    }
+  }
 
   return (
     <section id="pricing" className="py-20 sm:py-28 bg-zinc-950">
@@ -136,6 +167,7 @@ export default function Pricing() {
         <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
           {TIERS.map((tier) => {
             const price = annual ? tier.annualPrice : tier.monthlyPrice;
+            const isLoading = loadingTier === tier.name;
             return (
               <Card
                 key={tier.name}
@@ -187,13 +219,17 @@ export default function Pricing() {
                   <Button
                     variant={tier.highlighted ? "default" : "secondary"}
                     className="w-full"
-                    onClick={() =>
-                      document
-                        .getElementById("pricing")
-                        ?.scrollIntoView({ behavior: "smooth" })
-                    }
+                    disabled={isLoading}
+                    onClick={() => handleCheckout(tier)}
                   >
-                    {tier.cta}
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Redirecting…
+                      </>
+                    ) : (
+                      tier.cta
+                    )}
                   </Button>
                 </CardFooter>
               </Card>

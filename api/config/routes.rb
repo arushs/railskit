@@ -10,5 +10,15 @@ Rails.application.routes.draw do
 
   namespace :api do
     get "health", to: "health#show"
+
+    # Payments
+    resources :plans, only: [:index]
+    post "checkout", to: "checkout#create"
+    post "billing-portal", to: "billing_portal#create"
+
+    # Webhooks
+    namespace :webhooks do
+      post "stripe", to: "stripe#create"
+    end
   end
 end
