@@ -20,5 +20,8 @@ Rails.application.routes.draw do
     namespace :webhooks do
       post "stripe", to: "stripe#create"
     end
+
+    # Agents
+    post "agents/:agent_name/chat", to: "agents#chat"
   end
 end
