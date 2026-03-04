@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { api } from "@/lib/api";
+import SEO from "@/components/seo/SEO";
+import { pricingJsonLd } from "@/components/seo/structured-data";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -81,6 +83,16 @@ export default function BillingPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-8 animate-in">
+      <SEO
+        title="Billing"
+        description="Manage your RailsKit subscription and billing."
+        noindex
+        jsonLd={pricingJsonLd([
+          { name: "Starter", price: 0, description: "Free tier for getting started", features: ["1 project", "1K API requests/day"] },
+          { name: "Pro", price: 29, description: "For professional developers", features: ["Unlimited projects", "10K API requests/day"] },
+          { name: "Enterprise", price: 99, description: "For teams and organizations", features: ["Unlimited API requests", "SSO / SAML"] },
+        ])}
+      />
       <div>
         <h1 className="text-2xl font-bold text-zinc-900 dark:text-white">Billing</h1>
         <p className="mt-1 text-zinc-500 dark:text-zinc-400">
