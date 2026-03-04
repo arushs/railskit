@@ -13,6 +13,12 @@ Rails.application.routes.draw do
   namespace :api do
     get "health", to: "health#show"
 
+    # Conversations & Agent
+    resources :conversations, only: %i[index show create update destroy] do
+      get :messages, on: :member
+    end
+    post "agent/chat", to: "agent#chat"
+
     namespace :auth do
       # Custom auth endpoints
       devise_scope :user do
