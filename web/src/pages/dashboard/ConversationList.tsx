@@ -53,7 +53,7 @@ export default function ConversationList() {
       ) : (
         <div className="space-y-3">
           {filtered.map((conv) => (
-            <Link key={conv.id} to={`/dashboard/conversations/${conv.id}`}>
+            <Link key={conv.id} to={`/agents/conversations/${conv.id}`}>
               <Card className="hover:border-zinc-700 transition-colors cursor-pointer">
                 <CardContent className="p-5">
                   <div className="flex items-start gap-4">

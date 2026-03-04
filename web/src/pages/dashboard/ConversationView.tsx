@@ -48,7 +48,7 @@ export default function ConversationView() {
   if (!conversation) {
     return (
       <div className="space-y-4">
-        <Link to="/dashboard/conversations" className="text-indigo-400 hover:text-indigo-300 text-sm">{"← Back to conversations"}</Link>
+        <Link to="/agents/conversations" className="text-indigo-400 hover:text-indigo-300 text-sm">{"← Back to conversations"}</Link>
         <Card><CardContent className="p-12 text-center"><p className="text-zinc-400">Conversation not found.</p></CardContent></Card>
       </div>
     );
@@ -57,7 +57,7 @@ export default function ConversationView() {
   return (
     <div className="space-y-6">
       <div className="flex items-start gap-4">
-        <Link to="/dashboard/conversations"><Button variant="ghost" size="icon"><ArrowLeft className="h-4 w-4" /></Button></Link>
+        <Link to="/agents/conversations"><Button variant="ghost" size="icon"><ArrowLeft className="h-4 w-4" /></Button></Link>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-3">
             <span className="text-2xl">{conversation.agentEmoji}</span>
