@@ -95,28 +95,49 @@ function merge<T extends Record<string, unknown>>(
 }
 
 // Build the final config: defaults ← generated JSON ← env vars
+// Only include keys where an env var is actually defined so we don't
+// shadow the generated JSON layer with default fallbacks.
+function compact<T extends Record<string, unknown>>(obj: T): Partial<T> {
+  const result: Partial<T> = {};
+  for (const key of Object.keys(obj) as (keyof T)[]) {
+    if (obj[key] !== undefined) {
+      result[key] = obj[key];
+    }
+  }
+  return Object.keys(result).length > 0 ? result : ({} as Partial<T>);
+}
+
 const envOverrides: Partial<RailsKitConfig> = {
-  app: {
-    name: env("APP_NAME") ?? defaults.app.name,
-    domain: env("APP_DOMAIN") ?? defaults.app.domain,
-  },
-  auth: {
-    provider: env("AUTH_PROVIDER") ?? defaults.auth.provider,
-    google_oauth:
-      envBool("AUTH_GOOGLE_OAUTH") ?? defaults.auth.google_oauth,
-    magic_links: envBool("AUTH_MAGIC_LINKS") ?? defaults.auth.magic_links,
-  },
-  payments: {
-    provider: env("PAYMENTS_PROVIDER") ?? defaults.payments.provider,
-  },
-  ai: {
-    provider: env("AI_PROVIDER") ?? defaults.ai.provider,
-    model: env("AI_MODEL") ?? defaults.ai.model,
-  },
-  theme: {
-    primary_color: env("THEME_PRIMARY_COLOR") ?? defaults.theme.primary_color,
-    dark_mode: envBool("THEME_DARK_MODE") ?? defaults.theme.dark_mode,
-  },
+  ...compact({
+    app: compact({
+      name: env("APP_NAME"),
+      domain: env("APP_DOMAIN"),
+    }),
+  } as Pick<RailsKitConfig, "app">),
+  ...compact({
+    auth: compact({
+      provider: env("AUTH_PROVIDER"),
+      google_oauth: envBool("AUTH_GOOGLE_OAUTH"),
+      magic_links: envBool("AUTH_MAGIC_LINKS"),
+    }),
+  } as Pick<RailsKitConfig, "auth">),
+  ...compact({
+    payments: compact({
+      provider: env("PAYMENTS_PROVIDER"),
+    }),
+  } as Pick<RailsKitConfig, "payments">),
+  ...compact({
+    ai: compact({
+      provider: env("AI_PROVIDER"),
+      model: env("AI_MODEL"),
+    }),
+  } as Pick<RailsKitConfig, "ai">),
+  ...compact({
+    theme: compact({
+      primary_color: env("THEME_PRIMARY_COLOR"),
+      dark_mode: envBool("THEME_DARK_MODE"),
+    }),
+  } as Pick<RailsKitConfig, "theme">),
 };
 
 export const config: RailsKitConfig = merge(
