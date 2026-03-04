@@ -3,3 +3,5 @@
 .DS_Store
 node_modules/
 web/src/railskit.generated.json
+api/db/schema.rb
+api/spec/examples.txt
