@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "rails_helper"
+require "ostruct"
 
 RSpec.describe "Stripe Webhooks", type: :request do
   let(:webhook_secret) { "whsec_test_secret" }
@@ -15,7 +16,7 @@ RSpec.describe "Stripe Webhooks", type: :request do
     event = {
       id: "evt_#{SecureRandom.hex(12)}",
       type: event_type,
-      data: { object: data_object.merge(metadata.any? ? { metadata: metadata } : {}) }
+      data: { object: data_object.merge(metadata: metadata) }
     }
     payload = event.to_json
 

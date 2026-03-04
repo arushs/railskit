@@ -34,7 +34,7 @@ RSpec.describe User do
 
   # -- Associations --
   describe "associations" do
-    it { is_expected.to have_many(:conversations).dependent(:destroy) }
+    it { is_expected.to have_many(:chats).dependent(:destroy) }
   end
 
   # -- OAuth --

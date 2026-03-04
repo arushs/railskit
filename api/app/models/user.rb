@@ -7,7 +7,7 @@ class User < ApplicationRecord
          jwt_revocation_strategy: JwtDenylist,
          omniauth_providers: [:google_oauth2]
 
-  has_many :conversations, dependent: :destroy
+  has_many :chats, dependent: :destroy
 
   validates :plan, inclusion: { in: %w[free starter pro enterprise] }
 
