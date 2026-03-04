@@ -40,5 +40,10 @@ module Api
     # Middleware like session, flash, cookies can be added back manually.
     # Skip views, helpers and assets when generating a new resource.
     config.api_only = true
+
+    # Add session/cookie middleware for Devise + JWT httpOnly cookies + OmniAuth
+    config.middleware.use ActionDispatch::Cookies
+    config.middleware.use ActionDispatch::Session::CookieStore, key: "_railskit_session"
+    config.session_store :cookie_store, key: "_railskit_session"
   end
 end

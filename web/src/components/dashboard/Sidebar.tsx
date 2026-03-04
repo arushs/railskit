@@ -6,7 +6,7 @@ import {
   LogOut,
   X,
 } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/hooks/useAuth";
 import { Avatar } from "@/components/ui/avatar";
 import DarkModeToggle from "./DarkModeToggle";
 import config from "@/config";
@@ -24,7 +24,7 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ open, onClose }: SidebarProps) {
-  const { user, logout } = useAuth();
+  const { user, signOut } = useAuth();
 
   return (
     <>
@@ -96,7 +96,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           </div>
 
           <button
-            onClick={() => logout()}
+            onClick={() => signOut()}
             className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200 transition-colors"
           >
             <LogOut className="h-4 w-4" />
