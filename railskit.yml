@@ -1,0 +1,25 @@
+app:
+  name: "RailsKit"
+  domain: "localhost"
+
+database:
+  adapter: "postgresql"  # postgresql | supabase | convex
+
+auth:
+  provider: "devise"  # devise | supabase | clerk
+  google_oauth: true
+  magic_links: true
+
+payments:
+  provider: "stripe"  # stripe | lemon_squeezy
+
+email:
+  provider: "resend"  # resend | postmark | smtp
+
+ai:
+  provider: "openai"  # openai | anthropic | google | ollama
+  model: "gpt-4o"
+
+theme:
+  primary_color: "#6366f1"
+  dark_mode: true
