@@ -3,12 +3,14 @@
 module Api
   module Auth
     class OmniauthCallbacksController < Devise::OmniauthCallbacksController
+      include JwtCookie
+
       def google_oauth2
         user = User.from_omniauth(request.env["omniauth.auth"])
 
         if user.persisted?
           sign_in(user)
-          token = Warden::JWTAuth::UserEncoder.new.call(user, :user, nil).first
+          token = encode_jwt_for(user)
           set_jwt_cookie(token)
 
           # Redirect to frontend with success
@@ -26,17 +28,6 @@ module Api
 
       def frontend_url
         ENV.fetch("FRONTEND_URL", "http://localhost:5173")
-      end
-
-      def set_jwt_cookie(token)
-        cookies[:jwt] = {
-          value: token,
-          httponly: true,
-          secure: Rails.env.production?,
-          same_site: Rails.env.production? ? :none : :lax,
-          expires: 24.hours.from_now,
-          path: "/"
-        }
       end
     end
   end

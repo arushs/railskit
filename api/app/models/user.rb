@@ -1,18 +1,15 @@
 # frozen_string_literal: true
 
 class User < ApplicationRecord
-  include Devise::JWT::RevocationStrategies::JTIMatcher
-
   devise :database_authenticatable, :registerable, :recoverable,
          :rememberable, :trackable, :validatable,
          :jwt_authenticatable, :omniauthable,
-         jwt_revocation_strategy: self,
+         jwt_revocation_strategy: JwtDenylist,
          omniauth_providers: [:google_oauth2]
 
-  validates :plan, inclusion: { in: %w[free starter pro enterprise] }
+  has_many :conversations, dependent: :destroy
 
-  # Generate JTI on create
-  before_create :generate_jti
+  validates :plan, inclusion: { in: %w[free starter pro enterprise] }
 
   def jwt_payload
     { "sub" => id, "email" => email, "plan" => plan }
@@ -41,11 +38,5 @@ class User < ApplicationRecord
 
   def consume_magic_link!
     update!(magic_link_token: nil, magic_link_sent_at: nil)
-  end
-
-  private
-
-  def generate_jti
-    self.jti ||= SecureRandom.uuid
   end
 end

@@ -27,7 +27,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_04_135222) do
     t.string "current_sign_in_ip"
     t.string "email", default: "", null: false
     t.string "encrypted_password", default: "", null: false
-    t.string "jti", null: false
     t.datetime "last_sign_in_at"
     t.string "last_sign_in_ip"
     t.datetime "magic_link_sent_at"
@@ -42,7 +41,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_04_135222) do
     t.string "uid"
     t.datetime "updated_at", null: false
     t.index ["email"], name: "index_users_on_email", unique: true
-    t.index ["jti"], name: "index_users_on_jti", unique: true
     t.index ["magic_link_token"], name: "index_users_on_magic_link_token", unique: true
     t.index ["provider", "uid"], name: "index_users_on_provider_and_uid", unique: true
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
