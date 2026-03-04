@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Link, Navigate, useNavigate } from "react-router";
 import { useAuth } from "../../hooks/useAuth";
 import { authApi } from "../../lib/api";
+import SEO from "../../components/seo/SEO";
 
 export function SignInPage() {
   const { user, signIn } = useAuth();
@@ -28,6 +29,7 @@ export function SignInPage() {
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white flex items-center justify-center p-4">
+      <SEO title="Sign In" description="Sign in to your RailsKit account." canonical="/login" noindex />
       <div className="w-full max-w-sm space-y-6">
         <div className="text-center">
           <h1 className="text-2xl font-bold">Sign In</h1>

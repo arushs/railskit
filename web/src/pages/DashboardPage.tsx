@@ -1,4 +1,5 @@
 import { useAuth } from "@/hooks/useAuth";
+import SEO from "@/components/seo/SEO";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CreditCard, Activity, Users, Zap } from "lucide-react";
 
@@ -14,6 +15,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8 animate-in">
+      <SEO title="Dashboard" description="Your RailsKit dashboard — analytics, users, and API metrics." noindex />
       <div>
         <h1 className="text-2xl font-bold text-zinc-900 dark:text-white">
           Welcome back{user?.name ? `, ${user.name}` : ""}

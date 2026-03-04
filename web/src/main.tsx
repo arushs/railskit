@@ -21,6 +21,8 @@ import ConversationList from "./pages/dashboard/ConversationList";
 import ConversationView from "./pages/dashboard/ConversationView";
 import CostTracking from "./pages/dashboard/CostTracking";
 import ToolUsage from "./pages/dashboard/ToolUsage";
+import BlogIndexPage from "./pages/BlogIndexPage";
+import BlogPostPage from "./pages/BlogPostPage";
 import "./index.css";
 
 createRoot(document.getElementById("root")!).render(
@@ -51,6 +53,10 @@ createRoot(document.getElementById("root")!).render(
               <Route path="/agents/conversations/:id" element={<AgentDashboardLayout><ConversationView /></AgentDashboardLayout>} />
               <Route path="/agents/costs" element={<AgentDashboardLayout><CostTracking /></AgentDashboardLayout>} />
               <Route path="/agents/tools" element={<AgentDashboardLayout><ToolUsage /></AgentDashboardLayout>} />
+
+              {/* Blog */}
+              <Route path="/blog" element={<BlogIndexPage />} />
+              <Route path="/blog/:slug" element={<BlogPostPage />} />
             </Routes>
           </BrowserRouter>
         </AuthProvider>
