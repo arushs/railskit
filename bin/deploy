@@ -1,0 +1,227 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# RailsKit deployment script
+# Usage: bin/deploy [render|fly|docker] [options]
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(dirname "$SCRIPT_DIR")"
+
+log()  { echo -e "${GREEN}[deploy]${NC} $*"; }
+warn() { echo -e "${YELLOW}[deploy]${NC} $*"; }
+err()  { echo -e "${RED}[deploy]${NC} $*" >&2; }
+info() { echo -e "${BLUE}[deploy]${NC} $*"; }
+
+usage() {
+  cat <<EOF
+Usage: bin/deploy <target> [options]
+
+Targets:
+  render    Deploy via Render Blueprint (push to trigger)
+  fly       Deploy to Fly.io
+  docker    Build and run production Docker image locally
+
+Options:
+  --build-only    Docker: build image without running
+  --tag TAG       Docker: custom image tag (default: railskit:latest)
+  --region REG    Fly: deployment region (default: iad)
+  --help          Show this help
+
+Examples:
+  bin/deploy render              # Push to main triggers Render deploy
+  bin/deploy fly                 # Deploy to Fly.io
+  bin/deploy fly --region lhr    # Deploy to London region
+  bin/deploy docker              # Build & run locally
+  bin/deploy docker --build-only # Build image only
+EOF
+  exit 0
+}
+
+check_command() {
+  if ! command -v "$1" &>/dev/null; then
+    err "$1 is required but not installed."
+    exit 1
+  fi
+}
+
+# -------------------------------------------------------------------
+# Render
+# -------------------------------------------------------------------
+deploy_render() {
+  log "Render deployment is Git-push driven."
+  info "Steps:"
+  echo "  1. Ensure repo is connected on https://dashboard.render.com"
+  echo "  2. Push to main branch to trigger auto-deploy"
+  echo "  3. Or use the Render Dashboard → Manual Deploy"
+  echo ""
+  info "Blueprint: render.yaml defines all services."
+  echo ""
+
+  local branch
+  branch=$(git rev-parse --abbrev-ref HEAD)
+  if [[ "$branch" != "main" ]]; then
+    warn "You're on branch '$branch', not 'main'."
+    warn "Render auto-deploys from main by default."
+  fi
+
+  log "Checking render.yaml exists..."
+  if [[ ! -f "$ROOT_DIR/render.yaml" ]]; then
+    err "render.yaml not found in project root!"
+    exit 1
+  fi
+
+  log "render.yaml found. Push to main to deploy."
+  info "One-click deploy URL:"
+  echo "  https://render.com/deploy?repo=https://github.com/arushs/railskit"
+}
+
+# -------------------------------------------------------------------
+# Fly.io
+# -------------------------------------------------------------------
+deploy_fly() {
+  local region="${1:-iad}"
+
+  check_command flyctl
+
+  log "Deploying to Fly.io (region: $region)..."
+
+  if ! flyctl apps list 2>/dev/null | grep -q railskit; then
+    warn "App 'railskit' not found. Creating..."
+    flyctl launch \
+      --copy-config \
+      --name railskit \
+      --region "$region" \
+      --no-deploy \
+      --yes
+    log "App created. Setting up PostgreSQL..."
+    flyctl postgres create \
+      --name railskit-db \
+      --region "$region" \
+      --vm-size shared-cpu-1x \
+      --initial-cluster-size 1 \
+      --volume-size 1
+    flyctl postgres attach railskit-db --app railskit
+    log "Generating SECRET_KEY_BASE..."
+    flyctl secrets set SECRET_KEY_BASE="$(openssl rand -hex 64)" --app railskit
+  fi
+
+  log "Deploying..."
+  flyctl deploy \
+    --region "$region" \
+    --strategy rolling \
+    --wait-timeout 300
+
+  log "Deployment complete!"
+  flyctl status --app railskit
+}
+
+# -------------------------------------------------------------------
+# Docker (local production build)
+# -------------------------------------------------------------------
+deploy_docker() {
+  local build_only=false
+  local tag="railskit:latest"
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --build-only) build_only=true; shift ;;
+      --tag) tag="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+
+  check_command docker
+
+  log "Building production image: $tag"
+  docker build \
+    -f "$ROOT_DIR/Dockerfile.production" \
+    -t "$tag" \
+    "$ROOT_DIR"
+
+  if $build_only; then
+    log "Image built: $tag"
+    docker images "$tag"
+    exit 0
+  fi
+
+  log "Starting production stack..."
+
+  # Create network if needed
+  docker network create railskit-prod 2>/dev/null || true
+
+  # Start PostgreSQL
+  log "Starting PostgreSQL..."
+  docker run -d \
+    --name railskit-postgres \
+    --network railskit-prod \
+    -e POSTGRES_USER=railskit \
+    -e POSTGRES_PASSWORD=railskit \
+    -e POSTGRES_DB=railskit_production \
+    -v railskit-pgdata:/var/lib/postgresql/data \
+    postgres:17-alpine 2>/dev/null || warn "PostgreSQL container already running"
+
+  # Wait for PostgreSQL
+  log "Waiting for PostgreSQL..."
+  sleep 3
+
+  # Start Rails
+  log "Starting Rails API..."
+  docker run -d \
+    --name railskit-api \
+    --network railskit-prod \
+    -p 3000:3000 \
+    -e DATABASE_URL="postgres://railskit:railskit@railskit-postgres:5432/railskit_production" \
+    -e SECRET_KEY_BASE="$(openssl rand -hex 64)" \
+    -e RAILS_ENV=production \
+    -e RAILS_SERVE_STATIC_FILES=true \
+    -e RAILS_LOG_TO_STDOUT=true \
+    "$tag" 2>/dev/null || warn "API container already running"
+
+  log "Production stack running!"
+  echo ""
+  info "API:      http://localhost:3000"
+  info "Health:   http://localhost:3000/up"
+  echo ""
+  info "Stop with: docker rm -f railskit-api railskit-postgres"
+  info "           docker network rm railskit-prod"
+}
+
+# -------------------------------------------------------------------
+# Main
+# -------------------------------------------------------------------
+[[ $# -eq 0 ]] && usage
+
+TARGET="$1"
+shift
+
+case "$TARGET" in
+  render)
+    deploy_render
+    ;;
+  fly)
+    region="iad"
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --region) region="$2"; shift 2 ;;
+        *) shift ;;
+      esac
+    done
+    deploy_fly "$region"
+    ;;
+  docker)
+    deploy_docker "$@"
+    ;;
+  --help|-h)
+    usage
+    ;;
+  *)
+    err "Unknown target: $TARGET"
+    usage
+    ;;
+esac

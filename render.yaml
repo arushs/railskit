@@ -1,0 +1,75 @@
+# Render Blueprint — one-click deploy for RailsKit
+# https://render.com/docs/blueprint-spec
+#
+# Usage: Connect this repo on Render Dashboard → New Blueprint Instance
+# Or click: https://render.com/deploy?repo=https://github.com/arushs/railskit
+
+databases:
+  - name: railskit-db
+    plan: free
+    databaseName: railskit_production
+    user: railskit
+    ipAllowList: [] # Allow only Render internal traffic
+
+services:
+  # Rails API — backend
+  - type: web
+    name: railskit-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile.production
+    dockerContext: .
+    plan: free
+    healthCheckPath: /up
+    envVars:
+      - key: RAILS_ENV
+        value: production
+      - key: RAILS_LOG_TO_STDOUT
+        value: "true"
+      - key: RAILS_SERVE_STATIC_FILES
+        value: "true"
+      - key: RAILS_MAX_THREADS
+        value: "5"
+      - key: WEB_CONCURRENCY
+        value: "2"
+      - key: SOLID_QUEUE_IN_PUMA
+        value: "true"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: railskit-db
+          property: connectionString
+      - key: REDIS_URL
+        value: "" # Add Render Redis add-on URL if needed
+      - key: SECRET_KEY_BASE
+        generateValue: true
+      - key: CORS_ORIGINS
+        sync: false # Set manually to your frontend URL
+    buildFilter:
+      paths:
+        - api/**
+        - web/**
+        - Dockerfile.production
+
+  # React frontend — static site
+  - type: web
+    name: railskit-web
+    runtime: static
+    buildCommand: cd web && npm ci && npm run build
+    staticPublishPath: ./web/dist
+    pullRequestPreviewsEnabled: true
+    headers:
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        sync: false # Set to your railskit-api URL
+    buildFilter:
+      paths:
+        - web/**

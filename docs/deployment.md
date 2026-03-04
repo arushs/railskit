@@ -1,219 +1,196 @@
 # Deployment Guide
 
-RailsKit supports multiple deployment targets. Render is recommended for the fastest path to production.
+RailsKit ships with production-ready deployment configs for **Render**, **Fly.io**, and **Docker**. Pick one and go.
+
+---
+
+## Quick Start
+
+```bash
+# See all options
+bin/deploy --help
+
+# Deploy to Render (push-based)
+bin/deploy render
+
+# Deploy to Fly.io
+bin/deploy fly
+
+# Build & run production Docker locally
+bin/deploy docker
+```
 
 ---
 
 ## Render (Recommended)
 
-Render gives you managed infrastructure with zero DevOps. The included `render.yaml` blueprint configures everything.
+Render gives you managed infrastructure with zero DevOps. The included `render.yaml` blueprint configures everything automatically.
 
 ### One-Click Deploy
 
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/arushs/railskit)
+
+Or manually:
+
 1. Push your code to GitHub
 2. [Render Dashboard](https://dashboard.render.com/) → **New** → **Blueprint**
-3. Connect your repo
-4. Render reads `render.yaml` and provisions:
-   - **Web Service** — Rails API
-   - **Static Site** — React frontend (built by Vite)
-   - **Background Worker** — Solid Queue
-   - **PostgreSQL** — Database (if using Postgres adapter)
+3. Connect your repo — Render reads `render.yaml` and provisions:
+   - **Web Service** — Rails API (Docker-based, uses `Dockerfile.production`)
+   - **Static Site** — React frontend (built with Vite, served from CDN)
+   - **PostgreSQL** — Free-tier database
 
-### render.yaml
+### Post-Deploy Setup
 
-```yaml
-services:
-  - type: web
-    name: railskit-api
-    runtime: ruby
-    buildCommand: cd api && bundle install && bin/rails db:migrate
-    startCommand: cd api && bin/rails server -p $PORT
-    envVars:
-      - key: RAILS_ENV
-        value: production
-      - key: RAILS_MASTER_KEY
-        sync: false
-      - key: DATABASE_URL
-        fromDatabase:
-          name: railskit-db
-          property: connectionString
+Set these environment variables in the Render dashboard:
 
-  - type: web
-    name: railskit-web
-    runtime: static
-    buildCommand: cd web && npm install && npm run build
-    staticPublishPath: web/dist
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
-
-  - type: worker
-    name: railskit-worker
-    runtime: ruby
-    buildCommand: cd api && bundle install
-    startCommand: cd api && bin/rails solid_queue:start
-    envVars:
-      - key: RAILS_ENV
-        value: production
-      - key: DATABASE_URL
-        fromDatabase:
-          name: railskit-db
-          property: connectionString
-
-databases:
-  - name: railskit-db
-    plan: starter
-```
+| Variable | Where | Value |
+|----------|-------|-------|
+| `CORS_ORIGINS` | railskit-api | Your frontend URL (e.g., `https://railskit-web.onrender.com`) |
+| `VITE_API_URL` | railskit-web | Your API URL (e.g., `https://railskit-api.onrender.com`) |
+| `STRIPE_SECRET_KEY` | railskit-api | Your Stripe live key (if billing enabled) |
+| `STRIPE_WEBHOOK_SECRET` | railskit-api | Webhook signing secret |
 
 ### Custom Domain
 
 1. Render dashboard → your static site → **Settings** → **Custom Domain**
-2. Add your domain (e.g., `myapp.com`)
-3. DNS records:
-   - `A` → Render's IP (shown in dashboard)
-   - `CNAME` for `www` → `your-site.onrender.com`
-4. SSL is automatic
-
-### Production CORS
-
-```ruby
-# api/config/initializers/cors.rb
-origins ENV.fetch("FRONTEND_URL", "https://myapp.com")
-```
-
-Set `FRONTEND_URL` in Render environment variables.
-
----
-
-## Docker (Universal)
-
-Works anywhere: Railway, Fly.io, AWS, DigitalOcean, bare metal.
-
-### Quick Start
-
-```bash
-docker compose -f docker-compose.prod.yml up -d
-```
-
-### Production Docker Compose
-
-```yaml
-# docker-compose.prod.yml
-services:
-  api:
-    build:
-      context: ./api
-      dockerfile: Dockerfile.prod
-    ports:
-      - "3000:3000"
-    environment:
-      RAILS_ENV: production
-      DATABASE_URL: postgres://user:pass@db:5432/railskit_prod
-      RAILS_MASTER_KEY: ${RAILS_MASTER_KEY}
-    depends_on:
-      - db
-
-  web:
-    build:
-      context: ./web
-      dockerfile: Dockerfile.prod
-    ports:
-      - "80:80"
-      - "443:443"
-
-  worker:
-    build:
-      context: ./api
-      dockerfile: Dockerfile.prod
-    command: bin/rails solid_queue:start
-    environment:
-      RAILS_ENV: production
-      DATABASE_URL: postgres://user:pass@db:5432/railskit_prod
-    depends_on:
-      - db
-
-  db:
-    image: postgres:16
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: pass
-      POSTGRES_DB: railskit_prod
-
-volumes:
-  pgdata:
-```
-
----
-
-## Railway
-
-1. New project on [Railway](https://railway.app)
-2. Add **PostgreSQL** service
-3. Add **GitHub Repo** for API (root dir: `api`)
-   - Build: `bundle install && bin/rails db:migrate`
-   - Start: `bin/rails server -b 0.0.0.0 -p $PORT`
-4. Add another service for frontend (root dir: `web`)
-   - Build: `npm install && npm run build`
-   - Start: `npx serve dist -s -l $PORT`
-5. Set environment variables
+2. Add your domain and configure DNS (CNAME to `*.onrender.com`)
+3. SSL is automatic
 
 ---
 
 ## Fly.io
 
+Fly.io gives you global edge deployment with auto-scaling.
+
+### First Deploy
+
 ```bash
-cd api && fly launch --name myapp-api && fly deploy
-cd ../web && fly launch --name myapp-web && fly deploy
+# Install flyctl: https://fly.io/docs/getting-started/installing-flyctl/
+bin/deploy fly
+
+# Or with a specific region
+bin/deploy fly --region lhr
 ```
 
-RailsKit includes starter `fly.toml` configs for both services.
+The deploy script handles:
+- App creation (if needed)
+- PostgreSQL provisioning and attachment
+- `SECRET_KEY_BASE` generation
+- Rolling deployment
+
+### Configuration
+
+The `fly.toml` at the project root configures:
+- Health checks at `/up`
+- Auto-stop/start machines (cost savings)
+- Rolling deploys with `db:prepare` as release command
+- Memory: 512MB shared CPU
+
+### Set Environment Variables
+
+```bash
+flyctl secrets set \
+  CORS_ORIGINS="https://your-frontend.com" \
+  STRIPE_SECRET_KEY="sk_live_..." \
+  --app railskit
+```
+
+### Fly + Static Frontend
+
+For the React frontend, either:
+1. Serve from Rails (already built into `Dockerfile.production` at `/public/web/`)
+2. Deploy separately to Cloudflare Pages / Vercel / Netlify
 
 ---
 
-## Convex / Supabase Notes
+## Docker (Universal)
 
-If using Convex or Supabase as your database, there's no database to deploy — they're hosted services. You only deploy the Rails API + React frontend.
+Works anywhere: AWS, DigitalOcean, bare metal, local testing.
 
-- **Convex:** Set `CONVEX_URL` and `CONVEX_DEPLOY_KEY`. Run `npx convex deploy` for schema changes.
-- **Supabase:** Set `SUPABASE_URL` and `SUPABASE_KEY`. Run migrations via Supabase CLI.
+### Build & Run Locally
+
+```bash
+# Full production stack (PostgreSQL + Rails)
+bin/deploy docker
+
+# Build image only
+bin/deploy docker --build-only
+
+# Custom tag
+bin/deploy docker --tag myregistry/railskit:v1.0
+```
+
+### Multi-Stage Build
+
+`Dockerfile.production` uses a multi-stage build:
+
+1. **Stage 1 (frontend-build):** Node 22 — installs deps, builds React with Vite
+2. **Stage 2 (production):** Ruby 3.3-slim — installs gems, copies built frontend into `public/web/`, runs Rails with Thruster
+
+Features:
+- jemalloc for better memory management
+- Non-root user for security
+- Bootsnap precompilation for fast boot
+- `db:prepare` on entrypoint (creates or migrates)
+- ~250MB final image
+
+### Push to Registry
+
+```bash
+bin/deploy docker --build-only --tag ghcr.io/arushs/railskit:latest
+docker push ghcr.io/arushs/railskit:latest
+```
+
+---
+
+## Environment Variables
+
+See `.env.production.example` for the full list. Key variables:
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `DATABASE_URL` | ✅ | PostgreSQL connection string |
+| `SECRET_KEY_BASE` | ✅ | Generate with `bin/rails secret` |
+| `RAILS_ENV` | ✅ | Must be `production` |
+| `CORS_ORIGINS` | ✅ | Frontend URL(s), comma-separated |
+| `VITE_API_URL` | ✅ | API URL (build-time for frontend) |
+| `REDIS_URL` | ❌ | Only if using Redis (Solid adapters don't need it) |
+| `STRIPE_SECRET_KEY` | ❌ | If billing is enabled |
+| `SOLID_QUEUE_IN_PUMA` | ❌ | Set to `true` for single-server deploys |
+
+---
+
+## Health Checks
+
+All deployment configs use the built-in Rails health check:
+
+- **Endpoint:** `GET /up`
+- **Success:** 200 if the app boots cleanly
+- **Failure:** 500 if any exception during boot
+
+The API also exposes `GET /api/health` for application-level checks.
 
 ---
 
 ## Production Checklist
 
 ### Security
+- [ ] `SECRET_KEY_BASE` is set (unique, random)
+- [ ] CORS restricted to your frontend domain only
+- [ ] `force_ssl` enabled in `config/environments/production.rb`
+- [ ] All API keys in env vars, never committed
 
-- [ ] `RAILS_ENV=production`
-- [ ] `RAILS_MASTER_KEY` set (never commit `master.key`)
-- [ ] JWT secret is unique and strong
-- [ ] CORS restricted to your domain
-- [ ] `force_ssl` enabled in Rails production config
-- [ ] All API keys in env vars, not in code
-
-### Stripe
-
+### Stripe (if billing enabled)
 - [ ] Switched from `sk_test_` to `sk_live_` keys
-- [ ] Webhook endpoint registered (production URL)
-- [ ] Webhook secret updated
-- [ ] Tested a real payment in test mode
-
-### Email
-
-- [ ] DNS records configured (SPF, DKIM, DMARC)
-- [ ] Test emails send correctly from production domain
-- [ ] From address matches domain
+- [ ] Webhook endpoint registered with production URL
+- [ ] Webhook signing secret updated
 
 ### DNS & SSL
-
 - [ ] A/CNAME records pointing to host
-- [ ] SSL certificate active
+- [ ] SSL certificate active (auto on Render/Fly)
 - [ ] `www` redirect configured
 
 ### Monitoring
-
 - [ ] Error tracking (Sentry, Honeybadger)
-- [ ] Uptime monitoring (UptimeRobot, Better Uptime)
-- [ ] Log aggregation (host-provided or Papertrail)
+- [ ] Uptime monitoring on `/up` endpoint
+- [ ] Log aggregation configured
