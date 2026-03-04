@@ -1,227 +1,526 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/usr/bin/env ruby
+# frozen_string_literal: true
 
-# RailsKit deployment script
-# Usage: bin/deploy [render|fly|docker] [options]
+#
+# RailsKit Deploy CLI
+# Interactive or direct deployment to Render, Fly.io, Railway, Docker, or Kamal.
+#
+# Usage:
+#   bin/deploy              # Interactive mode (TTY::Prompt)
+#   bin/deploy render       # Direct deploy to Render
+#   bin/deploy fly          # Direct deploy to Fly.io
+#   bin/deploy railway      # Direct deploy to Railway
+#   bin/deploy kamal        # Direct deploy via Kamal
+#   bin/deploy docker       # Build & run Docker locally
+#   bin/deploy --help       # Show help
+#
 
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
+require "bundler/inline"
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(dirname "$SCRIPT_DIR")"
+gemfile(true, quiet: true) do
+  source "https://rubygems.org"
+  gem "tty-prompt", "~> 0.23"
+  gem "yaml"
+end
 
-log()  { echo -e "${GREEN}[deploy]${NC} $*"; }
-warn() { echo -e "${YELLOW}[deploy]${NC} $*"; }
-err()  { echo -e "${RED}[deploy]${NC} $*" >&2; }
-info() { echo -e "${BLUE}[deploy]${NC} $*"; }
+require "tty-prompt"
+require "yaml"
+require "json"
+require "net/http"
+require "uri"
+require "fileutils"
 
-usage() {
-  cat <<EOF
-Usage: bin/deploy <target> [options]
+ROOT = File.expand_path("..", __dir__)
+Dir.chdir(ROOT)
 
-Targets:
-  render    Deploy via Render Blueprint (push to trigger)
-  fly       Deploy to Fly.io
-  docker    Build and run production Docker image locally
+CONFIG_FILE = File.join(ROOT, "railskit.yml")
 
-Options:
-  --build-only    Docker: build image without running
-  --tag TAG       Docker: custom image tag (default: railskit:latest)
-  --region REG    Fly: deployment region (default: iad)
-  --help          Show this help
+# ─── Colors & Logging ─────────────────────────────────────────────────────────
 
-Examples:
-  bin/deploy render              # Push to main triggers Render deploy
-  bin/deploy fly                 # Deploy to Fly.io
-  bin/deploy fly --region lhr    # Deploy to London region
-  bin/deploy docker              # Build & run locally
-  bin/deploy docker --build-only # Build image only
-EOF
-  exit 0
-}
+module Log
+  RED    = "\033[0;31m"
+  GREEN  = "\033[0;32m"
+  YELLOW = "\033[1;33m"
+  BLUE   = "\033[0;34m"
+  BOLD   = "\033[1m"
+  NC     = "\033[0m"
 
-check_command() {
-  if ! command -v "$1" &>/dev/null; then
-    err "$1 is required but not installed."
+  def self.log(msg)  ; puts "#{GREEN}[deploy]#{NC} #{msg}"  ; end
+  def self.warn(msg) ; puts "#{YELLOW}[deploy]#{NC} #{msg}" ; end
+  def self.err(msg)  ; $stderr.puts "#{RED}[deploy]#{NC} #{msg}" ; end
+  def self.info(msg) ; puts "#{BLUE}[deploy]#{NC} #{msg}"  ; end
+  def self.step(msg) ; puts "#{BOLD}#{GREEN}▸#{NC} #{msg}" ; end
+end
+
+# ─── Config ────────────────────────────────────────────────────────────────────
+
+def load_config
+  return {} unless File.exist?(CONFIG_FILE)
+  YAML.safe_load(File.read(CONFIG_FILE)) || {}
+end
+
+def save_deploy_preference(provider)
+  config = load_config
+  config["deploy"] ||= {}
+  config["deploy"]["provider"] = provider
+  File.write(CONFIG_FILE, config.to_yaml)
+  Log.log "Saved deploy preference '#{provider}' to railskit.yml"
+end
+
+def saved_provider
+  config = load_config
+  config.dig("deploy", "provider")
+end
+
+def app_name
+  config = load_config
+  config.dig("app", "name")&.downcase&.gsub(/\s+/, "-") || "railskit"
+end
+
+def app_domain
+  config = load_config
+  config.dig("app", "domain") || "localhost"
+end
+
+# ─── Helpers ───────────────────────────────────────────────────────────────────
+
+def check_command!(cmd)
+  unless system("command -v #{cmd} > /dev/null 2>&1")
+    Log.err "#{cmd} is required but not installed."
     exit 1
-  fi
-}
+  end
+end
 
-# -------------------------------------------------------------------
-# Render
-# -------------------------------------------------------------------
-deploy_render() {
-  log "Render deployment is Git-push driven."
-  info "Steps:"
-  echo "  1. Ensure repo is connected on https://dashboard.render.com"
-  echo "  2. Push to main branch to trigger auto-deploy"
-  echo "  3. Or use the Render Dashboard → Manual Deploy"
-  echo ""
-  info "Blueprint: render.yaml defines all services."
-  echo ""
+def run!(cmd)
+  Log.info "$ #{cmd}"
+  system(cmd) || (Log.err("Command failed: #{cmd}") && exit(1))
+end
 
-  local branch
-  branch=$(git rev-parse --abbrev-ref HEAD)
-  if [[ "$branch" != "main" ]]; then
-    warn "You're on branch '$branch', not 'main'."
-    warn "Render auto-deploys from main by default."
-  fi
+def health_check(url, retries: 5, delay: 3)
+  puts ""
+  Log.step "Running health check: #{url}"
+  retries.times do |i|
+    begin
+      uri = URI.parse(url)
+      response = Net::HTTP.get_response(uri)
+      if response.code.to_i < 400
+        Log.log "✅ Health check passed (HTTP #{response.code})"
+        return true
+      else
+        Log.warn "Health check returned HTTP #{response.code} (attempt #{i + 1}/#{retries})"
+      end
+    rescue StandardError => e
+      Log.warn "Health check failed: #{e.message} (attempt #{i + 1}/#{retries})"
+    end
+    sleep delay
+  end
+  Log.err "❌ Health check failed after #{retries} attempts"
+  false
+end
 
-  log "Checking render.yaml exists..."
-  if [[ ! -f "$ROOT_DIR/render.yaml" ]]; then
-    err "render.yaml not found in project root!"
+# ─── Deploy: Render ────────────────────────────────────────────────────────────
+
+def deploy_render(env:)
+  Log.step "Deploying to Render (#{env})..."
+  puts ""
+
+  Log.log "Render deployment is Git-push driven."
+  Log.info "Steps:"
+  puts "  1. Ensure repo is connected on https://dashboard.render.com"
+  puts "  2. Push to main branch to trigger auto-deploy"
+  puts "  3. Or use the Render Dashboard → Manual Deploy"
+  puts ""
+  Log.info "Blueprint: render.yaml defines all services."
+
+  unless File.exist?(File.join(ROOT, "render.yaml"))
+    Log.err "render.yaml not found in project root!"
     exit 1
-  fi
+  end
 
-  log "render.yaml found. Push to main to deploy."
-  info "One-click deploy URL:"
-  echo "  https://render.com/deploy?repo=https://github.com/arushs/railskit"
-}
+  branch = `git rev-parse --abbrev-ref HEAD`.strip
+  if branch != "main"
+    Log.warn "You're on branch '#{branch}', not 'main'."
+    Log.warn "Render auto-deploys from main by default."
+  end
 
-# -------------------------------------------------------------------
-# Fly.io
-# -------------------------------------------------------------------
-deploy_fly() {
-  local region="${1:-iad}"
+  Log.log "render.yaml found. Push to main to deploy."
+  Log.info "One-click deploy URL:"
+  puts "  https://render.com/deploy?repo=https://github.com/arushs/railskit"
 
-  check_command flyctl
+  if app_domain != "localhost"
+    health_check("https://#{app_domain}/up")
+  end
+end
 
-  log "Deploying to Fly.io (region: $region)..."
+# ─── Deploy: Fly.io ───────────────────────────────────────────────────────────
 
-  if ! flyctl apps list 2>/dev/null | grep -q railskit; then
-    warn "App 'railskit' not found. Creating..."
-    flyctl launch \
-      --copy-config \
-      --name railskit \
-      --region "$region" \
-      --no-deploy \
-      --yes
-    log "App created. Setting up PostgreSQL..."
-    flyctl postgres create \
-      --name railskit-db \
-      --region "$region" \
-      --vm-size shared-cpu-1x \
-      --initial-cluster-size 1 \
-      --volume-size 1
-    flyctl postgres attach railskit-db --app railskit
-    log "Generating SECRET_KEY_BASE..."
-    flyctl secrets set SECRET_KEY_BASE="$(openssl rand -hex 64)" --app railskit
-  fi
+def deploy_fly(env:, region: "iad")
+  Log.step "Deploying to Fly.io (#{env}, region: #{region})..."
+  puts ""
 
-  log "Deploying..."
-  flyctl deploy \
-    --region "$region" \
-    --strategy rolling \
-    --wait-timeout 300
+  check_command!("flyctl")
 
-  log "Deployment complete!"
-  flyctl status --app railskit
-}
+  name = app_name
+  name = "#{name}-staging" if env == "staging"
 
-# -------------------------------------------------------------------
-# Docker (local production build)
-# -------------------------------------------------------------------
-deploy_docker() {
-  local build_only=false
-  local tag="railskit:latest"
+  apps_output = `flyctl apps list 2>/dev/null`
+  unless apps_output.include?(name)
+    Log.warn "App '#{name}' not found. Creating..."
+    run! "flyctl launch --copy-config --name #{name} --region #{region} --no-deploy --yes"
+    Log.log "Setting up PostgreSQL..."
+    run! "flyctl postgres create --name #{name}-db --region #{region} --vm-size shared-cpu-1x --initial-cluster-size 1 --volume-size 1"
+    run! "flyctl postgres attach #{name}-db --app #{name}"
+    Log.log "Generating SECRET_KEY_BASE..."
+    run! "flyctl secrets set SECRET_KEY_BASE=\"$(openssl rand -hex 64)\" --app #{name}"
+  end
 
-  while [[ $# -gt 0 ]]; do
-    case "$1" in
-      --build-only) build_only=true; shift ;;
-      --tag) tag="$2"; shift 2 ;;
-      *) shift ;;
-    esac
-  done
+  Log.log "Deploying..."
+  run! "flyctl deploy --app #{name} --region #{region} --strategy rolling --wait-timeout 300"
 
-  check_command docker
+  Log.log "Deployment complete!"
+  system "flyctl status --app #{name}"
 
-  log "Building production image: $tag"
-  docker build \
-    -f "$ROOT_DIR/Dockerfile.production" \
-    -t "$tag" \
-    "$ROOT_DIR"
+  health_check("https://#{name}.fly.dev/up")
+end
 
-  if $build_only; then
-    log "Image built: $tag"
-    docker images "$tag"
-    exit 0
-  fi
+# ─── Deploy: Railway ──────────────────────────────────────────────────────────
 
-  log "Starting production stack..."
+def deploy_railway(env:)
+  Log.step "Deploying to Railway (#{env})..."
+  puts ""
 
-  # Create network if needed
-  docker network create railskit-prod 2>/dev/null || true
+  check_command!("railway")
 
-  # Start PostgreSQL
-  log "Starting PostgreSQL..."
-  docker run -d \
-    --name railskit-postgres \
-    --network railskit-prod \
-    -e POSTGRES_USER=railskit \
-    -e POSTGRES_PASSWORD=railskit \
-    -e POSTGRES_DB=railskit_production \
-    -v railskit-pgdata:/var/lib/postgresql/data \
-    postgres:17-alpine 2>/dev/null || warn "PostgreSQL container already running"
+  # Generate railway.json if missing
+  railway_config = File.join(ROOT, "railway.json")
+  unless File.exist?(railway_config)
+    Log.warn "railway.json not found. Generating..."
+    config = {
+      "$schema" => "https://railway.app/railway.schema.json",
+      "build" => {
+        "builder" => "DOCKERFILE",
+        "dockerfilePath" => "Dockerfile.production"
+      },
+      "deploy" => {
+        "startCommand" => "bin/rails server -b 0.0.0.0 -p ${PORT:-3000}",
+        "healthcheckPath" => "/up",
+        "healthcheckTimeout" => 30,
+        "restartPolicyType" => "ON_FAILURE",
+        "restartPolicyMaxRetries" => 5
+      }
+    }
+    File.write(railway_config, JSON.pretty_generate(config) + "\n")
+    Log.log "Created railway.json"
+  end
 
-  # Wait for PostgreSQL
-  log "Waiting for PostgreSQL..."
+  if env == "staging"
+    Log.info "Deploying to staging environment..."
+    run! "railway environment staging 2>/dev/null || railway environment create staging"
+  end
+
+  Log.log "Deploying via Railway..."
+  run! "railway up --detach"
+
+  Log.log "Deployment triggered!"
+  Log.info "Check status: railway status"
+  Log.info "View logs:    railway logs"
+
+  # Railway provides the domain via `railway domain`
+  domain = `railway domain 2>/dev/null`.strip
+  unless domain.empty?
+    health_check("https://#{domain}/up")
+  end
+end
+
+# ─── Deploy: Kamal ────────────────────────────────────────────────────────────
+
+def deploy_kamal(env:)
+  Log.step "Deploying via Kamal (#{env})..."
+  puts ""
+
+  check_command!("kamal")
+
+  deploy_yml = File.join(ROOT, "config", "deploy.yml")
+  unless File.exist?(deploy_yml)
+    Log.warn "config/deploy.yml not found. Generating Kamal config..."
+    FileUtils.mkdir_p(File.join(ROOT, "config"))
+    config = <<~YAML
+      # Kamal deployment configuration
+      # Generated by bin/deploy — customize for your VPS.
+      # Docs: https://kamal-deploy.org/docs
+
+      service: #{app_name}
+
+      image: #{app_name}
+
+      servers:
+        web:
+          hosts:
+            - YOUR_SERVER_IP
+          labels:
+            traefik.http.routers.#{app_name}.rule: Host(`#{app_domain}`)
+
+      proxy:
+        ssl: true
+        host: #{app_domain}
+        app_port: 3000
+        healthcheck:
+          interval: 3
+          path: /up
+          timeout: 7
+
+      registry:
+        server: ghcr.io
+        username:
+          - KAMAL_REGISTRY_USERNAME
+        password:
+          - KAMAL_REGISTRY_PASSWORD
+
+      builder:
+        dockerfile: Dockerfile.production
+        multiarch: false
+
+      env:
+        clear:
+          RAILS_ENV: production
+          RAILS_LOG_TO_STDOUT: "true"
+          RAILS_SERVE_STATIC_FILES: "true"
+          SOLID_QUEUE_IN_PUMA: "true"
+        secret:
+          - SECRET_KEY_BASE
+          - DATABASE_URL
+
+      accessories:
+        db:
+          image: postgres:17-alpine
+          host: YOUR_SERVER_IP
+          port: 5432
+          env:
+            clear:
+              POSTGRES_USER: #{app_name}
+              POSTGRES_DB: #{app_name}_production
+            secret:
+              - POSTGRES_PASSWORD
+          directories:
+            - data:/var/lib/postgresql/data
+    YAML
+    File.write(deploy_yml, config)
+    Log.log "Created config/deploy.yml"
+    Log.warn "Edit config/deploy.yml with your server IP and registry credentials before deploying."
+    puts ""
+  end
+
+  # Check if the config has placeholder values
+  content = File.read(deploy_yml)
+  if content.include?("YOUR_SERVER_IP")
+    Log.err "config/deploy.yml still has placeholder values (YOUR_SERVER_IP)."
+    Log.err "Edit the file with your actual server details before deploying."
+    exit 1
+  end
+
+  if env == "staging"
+    Log.log "Deploying to staging destination..."
+    run! "kamal deploy --destination=staging"
+  else
+    Log.log "Deploying to production..."
+    run! "kamal deploy"
+  end
+
+  Log.log "Deployment complete!"
+
+  if app_domain != "localhost"
+    health_check("https://#{app_domain}/up")
+  end
+end
+
+# ─── Deploy: Docker (local) ──────────────────────────────────────────────────
+
+def deploy_docker(build_only: false, tag: "railskit:latest")
+  Log.step "Docker local deployment..."
+  puts ""
+
+  check_command!("docker")
+
+  Log.log "Building production image: #{tag}"
+  run! "docker build -f Dockerfile.production -t #{tag} ."
+
+  if build_only
+    Log.log "Image built: #{tag}"
+    system "docker images #{tag}"
+    return
+  end
+
+  Log.log "Starting production stack..."
+  system "docker network create railskit-prod 2>/dev/null"
+
+  Log.log "Starting PostgreSQL..."
+  system 'docker run -d --name railskit-postgres --network railskit-prod ' \
+         '-e POSTGRES_USER=railskit -e POSTGRES_PASSWORD=railskit ' \
+         '-e POSTGRES_DB=railskit_production -v railskit-pgdata:/var/lib/postgresql/data ' \
+         'postgres:17-alpine 2>/dev/null'
+
+  Log.log "Waiting for PostgreSQL..."
   sleep 3
 
-  # Start Rails
-  log "Starting Rails API..."
-  docker run -d \
-    --name railskit-api \
-    --network railskit-prod \
-    -p 3000:3000 \
-    -e DATABASE_URL="postgres://railskit:railskit@railskit-postgres:5432/railskit_production" \
-    -e SECRET_KEY_BASE="$(openssl rand -hex 64)" \
-    -e RAILS_ENV=production \
-    -e RAILS_SERVE_STATIC_FILES=true \
-    -e RAILS_LOG_TO_STDOUT=true \
-    "$tag" 2>/dev/null || warn "API container already running"
+  secret = `openssl rand -hex 64`.strip
+  Log.log "Starting Rails API..."
+  system "docker run -d --name railskit-api --network railskit-prod -p 3000:3000 " \
+         "-e DATABASE_URL='postgres://railskit:railskit@railskit-postgres:5432/railskit_production' " \
+         "-e SECRET_KEY_BASE='#{secret}' -e RAILS_ENV=production " \
+         "-e RAILS_SERVE_STATIC_FILES=true -e RAILS_LOG_TO_STDOUT=true " \
+         "#{tag} 2>/dev/null"
 
-  log "Production stack running!"
-  echo ""
-  info "API:      http://localhost:3000"
-  info "Health:   http://localhost:3000/up"
-  echo ""
-  info "Stop with: docker rm -f railskit-api railskit-postgres"
-  info "           docker network rm railskit-prod"
-}
+  puts ""
+  Log.log "Production stack running!"
+  Log.info "API:      http://localhost:3000"
+  Log.info "Health:   http://localhost:3000/up"
+  puts ""
+  Log.info "Stop with: docker rm -f railskit-api railskit-postgres"
+  Log.info "           docker network rm railskit-prod"
 
-# -------------------------------------------------------------------
-# Main
-# -------------------------------------------------------------------
-[[ $# -eq 0 ]] && usage
+  sleep 5
+  health_check("http://localhost:3000/up")
+end
 
-TARGET="$1"
-shift
+# ─── Usage ─────────────────────────────────────────────────────────────────────
 
-case "$TARGET" in
-  render)
-    deploy_render
-    ;;
-  fly)
-    region="iad"
-    while [[ $# -gt 0 ]]; do
-      case "$1" in
-        --region) region="$2"; shift 2 ;;
-        *) shift ;;
-      esac
-    done
-    deploy_fly "$region"
-    ;;
-  docker)
-    deploy_docker "$@"
-    ;;
-  --help|-h)
-    usage
-    ;;
-  *)
-    err "Unknown target: $TARGET"
-    usage
-    ;;
-esac
+def print_usage
+  puts <<~HELP
+
+    #{Log::BOLD}RailsKit Deploy CLI#{Log::NC}
+
+    #{Log::BOLD}Usage:#{Log::NC}
+      bin/deploy                    Interactive mode
+      bin/deploy <provider>         Deploy directly
+
+    #{Log::BOLD}Providers:#{Log::NC}
+      render      Deploy via Render Blueprint (push to trigger)
+      fly         Deploy to Fly.io
+      railway     Deploy to Railway
+      kamal       Deploy via Kamal (to any VPS)
+      docker      Build and run production Docker image locally
+
+    #{Log::BOLD}Options:#{Log::NC}
+      --build-only    Docker: build image without running
+      --tag TAG       Docker: custom image tag (default: railskit:latest)
+      --region REG    Fly: deployment region (default: iad)
+      --env ENV       Environment: staging or production (default: production)
+      --save          Save provider preference to railskit.yml
+      --help          Show this help
+
+    #{Log::BOLD}Examples:#{Log::NC}
+      bin/deploy                        # Interactive prompt
+      bin/deploy render                 # Push to main triggers Render deploy
+      bin/deploy fly --region lhr       # Deploy to London region on Fly
+      bin/deploy railway                # Deploy to Railway
+      bin/deploy kamal --env staging    # Deploy staging via Kamal
+      bin/deploy docker --build-only    # Build image only
+
+  HELP
+end
+
+# ─── Interactive Mode ──────────────────────────────────────────────────────────
+
+def interactive_deploy
+  prompt = TTY::Prompt.new(active_color: :magenta, help_color: :dim)
+
+  puts <<~BANNER
+
+    #{Log::BOLD}#{Log::GREEN}🚀 RailsKit Deploy#{Log::NC}
+    ─────────────────────────────────
+
+  BANNER
+
+  # Check for saved preference
+  pref = saved_provider
+  if pref
+    use_saved = prompt.yes?("  Deploy to #{pref} (saved preference)?", default: true)
+    if use_saved
+      env = prompt.select("  Environment:", %w[production staging], cycle: true)
+      dispatch(provider: pref, env: env)
+      return
+    end
+  end
+
+  provider = prompt.select("  Where do you want to deploy?", cycle: true, per_page: 5) do |menu|
+    menu.choice "Render   — Git-push deploys via Blueprint",  "render"
+    menu.choice "Fly.io   — Edge deployment with Firecracker", "fly"
+    menu.choice "Railway  — Deploy from repo or Dockerfile",   "railway"
+    menu.choice "Kamal    — Deploy to any VPS (Rails 8)",      "kamal"
+    menu.choice "Docker   — Local production build",           "docker"
+  end
+
+  env = prompt.select("  Environment:", %w[production staging], cycle: true)
+
+  save = prompt.yes?("  Save '#{provider}' as default deploy target?", default: false)
+  save_deploy_preference(provider) if save
+
+  puts ""
+  dispatch(provider: provider, env: env)
+end
+
+# ─── Dispatch ──────────────────────────────────────────────────────────────────
+
+def dispatch(provider:, env: "production", region: "iad", build_only: false, tag: "railskit:latest")
+  case provider
+  when "render"
+    deploy_render(env: env)
+  when "fly"
+    deploy_fly(env: env, region: region)
+  when "railway"
+    deploy_railway(env: env)
+  when "kamal"
+    deploy_kamal(env: env)
+  when "docker"
+    deploy_docker(build_only: build_only, tag: tag)
+  else
+    Log.err "Unknown provider: #{provider}"
+    print_usage
+    exit 1
+  end
+end
+
+# ─── Main ──────────────────────────────────────────────────────────────────────
+
+if ARGV.empty?
+  interactive_deploy
+  exit 0
+end
+
+if ARGV.include?("--help") || ARGV.include?("-h")
+  print_usage
+  exit 0
+end
+
+provider = ARGV[0]
+env = "production"
+region = "iad"
+build_only = false
+tag = "railskit:latest"
+save = false
+
+i = 1
+while i < ARGV.length
+  case ARGV[i]
+  when "--env"
+    env = ARGV[i + 1]
+    i += 2
+  when "--region"
+    region = ARGV[i + 1]
+    i += 2
+  when "--build-only"
+    build_only = true
+    i += 1
+  when "--tag"
+    tag = ARGV[i + 1]
+    i += 2
+  when "--save"
+    save = true
+    i += 1
+  else
+    i += 1
+  end
+end
+
+save_deploy_preference(provider) if save
+dispatch(provider: provider, env: env, region: region, build_only: build_only, tag: tag)
