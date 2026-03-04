@@ -35,8 +35,23 @@ gem "image_processing", "~> 1.2"
 # Use Rack CORS for handling Cross-Origin Resource Sharing (CORS), making cross-origin Ajax possible
 gem "rack-cors"
 
+# Interactive CLI prompts
+gem "tty-prompt", "~> 0.23"
+
+# Authentication
+gem "devise", "~> 4.9"
+gem "devise-jwt", "~> 0.12"
+gem "omniauth-google-oauth2", "~> 1.2"
+gem "omniauth-rails_csrf_protection", "~> 1.0"
+
 # Payment processing
 gem "stripe", "~> 13.0"
+
+# AI / LLM
+gem "ruby_llm", "~> 1.0"
+
+# JWT for ActionCable auth
+gem "jwt", "~> 2.9"
 
 group :development, :test do
   # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem
