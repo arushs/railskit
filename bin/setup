@@ -1,14 +1,374 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/usr/bin/env ruby
+# frozen_string_literal: true
 
-cd "$(dirname "$0")/.."
+#
+# RailsKit Interactive Setup Wizard
+# Walks you through configuring your new RailsKit application.
+#
 
-echo "==> RailsKit Setup"
-echo ""
-echo "TODO: This script will be fleshed out in the next task."
-echo ""
-echo "For now, manually run:"
-echo "  1. cd api && bundle install"
-echo "  2. cd web && npm install"
-echo "  3. Copy .env.example to .env and configure"
-echo "  4. bin/dev to start development servers"
+require "bundler/inline"
+
+gemfile(true, quiet: true) do
+  source "https://rubygems.org"
+  gem "tty-prompt", "~> 0.23"
+  gem "yaml"
+end
+
+require "tty-prompt"
+require "yaml"
+require "fileutils"
+
+ROOT = File.expand_path("..", __dir__)
+Dir.chdir(ROOT)
+
+prompt = TTY::Prompt.new(active_color: :magenta, help_color: :dim)
+
+# ─── Banner ────────────────────────────────────────────────────────────────────
+
+puts <<~BANNER
+
+  ██████╗  █████╗ ██╗██╗     ███████╗██╗  ██╗██╗████████╗
+  ██╔══██╗██╔══██╗██║██║     ██╔════╝██║ ██╔╝██║╚══██╔══╝
+  ██████╔╝███████║██║██║     ███████╗█████╔╝ ██║   ██║
+  ██╔══██╗██╔══██║██║██║     ╚════██║██╔═██╗ ██║   ██║
+  ██║  ██║██║  ██║██║███████╗███████║██║  ██╗██║   ██║
+  ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚══════╝╚══════╝╚═╝  ╚═╝╚═╝   ╚═╝
+
+  Interactive Setup Wizard
+  ────────────────────────────────────────────────────────
+
+BANNER
+
+# ─── Step 1: App basics ───────────────────────────────────────────────────────
+
+puts prompt.decorate("  📦 App Configuration", :bold, :magenta)
+puts ""
+
+app_name = prompt.ask("  App name:", default: "RailsKit") do |q|
+  q.required true
+  q.modify :strip
+end
+
+app_domain = prompt.ask("  Domain:", default: "localhost") do |q|
+  q.required true
+  q.modify :strip, :down
+end
+
+puts ""
+
+# ─── Step 2: Database ─────────────────────────────────────────────────────────
+
+puts prompt.decorate("  🗄️  Database", :bold, :magenta)
+puts ""
+
+database = prompt.select("  Database adapter:", cycle: true, per_page: 3) do |menu|
+  menu.choice "PostgreSQL (local/managed)",  "postgresql"
+  menu.choice "Supabase (hosted Postgres)",  "supabase"
+  menu.choice "Convex (real-time backend)",   "convex"
+end
+
+db_env = {}
+case database
+when "postgresql"
+  db_env["DATABASE_URL"] = prompt.ask(
+    "  DATABASE_URL:",
+    default: "postgres://railskit:railskit@localhost:5432/#{app_name.downcase.gsub(/\s+/, '_')}_development"
+  )
+when "supabase"
+  db_env["DATABASE_URL"] = prompt.ask("  Supabase DATABASE_URL:") { |q| q.required true }
+  db_env["SUPABASE_URL"] = prompt.ask("  SUPABASE_URL:") { |q| q.required true }
+  db_env["SUPABASE_ANON_KEY"] = prompt.ask("  SUPABASE_ANON_KEY:") { |q| q.required true }
+when "convex"
+  db_env["CONVEX_DEPLOYMENT"] = prompt.ask("  CONVEX_DEPLOYMENT:") { |q| q.required true }
+end
+
+puts ""
+
+# ─── Step 3: Auth ──────────────────────────────────────────────────────────────
+
+puts prompt.decorate("  🔐 Authentication", :bold, :magenta)
+puts ""
+
+auth_provider = prompt.select("  Auth provider:", cycle: true) do |menu|
+  menu.choice "Devise (Rails-native)",  "devise"
+  menu.choice "Supabase Auth",          "supabase"
+  menu.choice "Clerk",                  "clerk"
+end
+
+google_oauth = prompt.yes?("  Enable Google OAuth?", default: true)
+magic_links  = prompt.yes?("  Enable magic link sign-in?", default: true)
+
+auth_env = {}
+case auth_provider
+when "clerk"
+  auth_env["CLERK_PUBLISHABLE_KEY"] = prompt.ask("  CLERK_PUBLISHABLE_KEY:", default: "pk_test_...")
+  auth_env["CLERK_SECRET_KEY"] = prompt.ask("  CLERK_SECRET_KEY:", default: "sk_test_...")
+end
+
+if google_oauth
+  auth_env["GOOGLE_CLIENT_ID"] = prompt.ask("  GOOGLE_CLIENT_ID:", default: "")
+  auth_env["GOOGLE_CLIENT_SECRET"] = prompt.ask("  GOOGLE_CLIENT_SECRET:", default: "")
+end
+
+puts ""
+
+# ─── Step 4: Payments ─────────────────────────────────────────────────────────
+
+puts prompt.decorate("  💳 Payments", :bold, :magenta)
+puts ""
+
+payments = prompt.select("  Payment provider:", cycle: true) do |menu|
+  menu.choice "Stripe",        "stripe"
+  menu.choice "Lemon Squeezy", "lemon_squeezy"
+end
+
+payment_env = {}
+case payments
+when "stripe"
+  payment_env["STRIPE_SECRET_KEY"] = prompt.ask("  STRIPE_SECRET_KEY:", default: "sk_test_...")
+  payment_env["STRIPE_WEBHOOK_SECRET"] = prompt.ask("  STRIPE_WEBHOOK_SECRET:", default: "whsec_...")
+when "lemon_squeezy"
+  payment_env["LEMONSQUEEZY_API_KEY"] = prompt.ask("  LEMONSQUEEZY_API_KEY:", default: "")
+  payment_env["LEMONSQUEEZY_WEBHOOK_SECRET"] = prompt.ask("  LEMONSQUEEZY_WEBHOOK_SECRET:", default: "")
+end
+
+puts ""
+
+# ─── Step 5: Email ─────────────────────────────────────────────────────────────
+
+puts prompt.decorate("  📧 Email", :bold, :magenta)
+puts ""
+
+email_provider = prompt.select("  Email provider:", cycle: true) do |menu|
+  menu.choice "Resend",   "resend"
+  menu.choice "Postmark", "postmark"
+  menu.choice "SMTP",     "smtp"
+end
+
+email_env = {}
+case email_provider
+when "resend"
+  email_env["RESEND_API_KEY"] = prompt.ask("  RESEND_API_KEY:", default: "re_...")
+when "postmark"
+  email_env["POSTMARK_API_TOKEN"] = prompt.ask("  POSTMARK_API_TOKEN:", default: "")
+when "smtp"
+  email_env["SMTP_ADDRESS"] = prompt.ask("  SMTP server address:", default: "smtp.gmail.com")
+  email_env["SMTP_PORT"] = prompt.ask("  SMTP port:", default: "587")
+  email_env["SMTP_USERNAME"] = prompt.ask("  SMTP username:", default: "")
+  email_env["SMTP_PASSWORD"] = prompt.ask("  SMTP password:", default: "")
+end
+
+puts ""
+
+# ─── Step 6: AI ────────────────────────────────────────────────────────────────
+
+puts prompt.decorate("  🤖 AI Provider", :bold, :magenta)
+puts ""
+
+ai_provider = prompt.select("  AI provider:", cycle: true) do |menu|
+  menu.choice "OpenAI",    "openai"
+  menu.choice "Anthropic", "anthropic"
+  menu.choice "Google",    "google"
+  menu.choice "Ollama",    "ollama"
+end
+
+AI_MODELS = {
+  "openai"    => %w[gpt-4o gpt-4o-mini gpt-4-turbo o1 o1-mini],
+  "anthropic" => %w[claude-sonnet-4-20250514 claude-3-5-haiku-20241022 claude-opus-4-20250514],
+  "google"    => %w[gemini-2.0-flash gemini-2.0-pro gemini-1.5-pro],
+  "ollama"    => %w[llama3.2 mistral codellama deepseek-coder],
+}.freeze
+
+ai_model = prompt.select("  Model:", AI_MODELS[ai_provider], cycle: true)
+
+ai_env = {}
+case ai_provider
+when "openai"
+  ai_env["OPENAI_API_KEY"] = prompt.ask("  OPENAI_API_KEY:", default: "sk-...")
+when "anthropic"
+  ai_env["ANTHROPIC_API_KEY"] = prompt.ask("  ANTHROPIC_API_KEY:", default: "sk-ant-...")
+when "google"
+  ai_env["GOOGLE_AI_API_KEY"] = prompt.ask("  GOOGLE_AI_API_KEY:", default: "")
+when "ollama"
+  ai_env["OLLAMA_BASE_URL"] = prompt.ask("  OLLAMA_BASE_URL:", default: "http://localhost:11434")
+end
+
+puts ""
+
+# ─── Step 7: Theme ─────────────────────────────────────────────────────────────
+
+puts prompt.decorate("  🎨 Theme", :bold, :magenta)
+puts ""
+
+COLOR_PRESETS = {
+  "Indigo (#6366f1)" => "#6366f1",
+  "Blue (#3b82f6)"   => "#3b82f6",
+  "Emerald (#10b981)" => "#10b981",
+  "Rose (#f43f5e)"   => "#f43f5e",
+  "Amber (#f59e0b)"  => "#f59e0b",
+  "Custom"           => nil,
+}.freeze
+
+color_choice = prompt.select("  Primary color:", COLOR_PRESETS.keys, cycle: true)
+primary_color = COLOR_PRESETS[color_choice] || prompt.ask("  Enter hex color:", default: "#6366f1") { |q|
+  q.validate(/\A#[0-9a-fA-F]{6}\z/, "Must be a hex color like #6366f1")
+}
+
+dark_mode = prompt.yes?("  Enable dark mode?", default: true)
+
+puts ""
+
+# ─── Summary ───────────────────────────────────────────────────────────────────
+
+config = {
+  "app" => {
+    "name" => app_name,
+    "domain" => app_domain,
+  },
+  "database" => {
+    "adapter" => database,
+  },
+  "auth" => {
+    "provider" => auth_provider,
+    "google_oauth" => google_oauth,
+    "magic_links" => magic_links,
+  },
+  "payments" => {
+    "provider" => payments,
+  },
+  "email" => {
+    "provider" => email_provider,
+  },
+  "ai" => {
+    "provider" => ai_provider,
+    "model" => ai_model,
+  },
+  "theme" => {
+    "primary_color" => primary_color,
+    "dark_mode" => dark_mode,
+  },
+}
+
+puts prompt.decorate("  📋 Configuration Summary", :bold, :magenta)
+puts ""
+puts "  App:      #{app_name} (#{app_domain})"
+puts "  Database: #{database}"
+puts "  Auth:     #{auth_provider}#{' + Google OAuth' if google_oauth}#{' + Magic Links' if magic_links}"
+puts "  Payments: #{payments}"
+puts "  Email:    #{email_provider}"
+puts "  AI:       #{ai_provider} / #{ai_model}"
+puts "  Theme:    #{primary_color}#{' (dark)' if dark_mode}"
+puts ""
+
+unless prompt.yes?("  Looks good? Write config and install?", default: true)
+  puts ""
+  puts "  Setup cancelled. Run bin/setup again when ready."
+  exit 0
+end
+
+puts ""
+
+# ─── Write railskit.yml ───────────────────────────────────────────────────────
+
+print "  Writing railskit.yml... "
+File.write(File.join(ROOT, "railskit.yml"), config.to_yaml)
+puts "✅"
+
+# ─── Generate .env ─────────────────────────────────────────────────────────────
+
+print "  Generating .env... "
+
+env_vars = {
+  "# RailsKit — generated by bin/setup" => nil,
+  "" => nil,
+  "# Rails API" => nil,
+  "RAILS_ENV" => "development",
+  "REDIS_URL" => "redis://localhost:6379/0",
+  "CORS_ORIGINS" => "http://localhost:5173",
+}
+
+env_vars.merge!(db_env)
+env_vars.merge!(auth_env)
+env_vars.merge!(payment_env)
+env_vars.merge!(email_env)
+env_vars.merge!(ai_env)
+
+# Vite env
+env_vars[""] = nil
+env_vars["# Vite (web)"] = nil
+env_vars["VITE_API_URL"] = "http://localhost:3000"
+
+env_content = env_vars.map do |key, value|
+  if value.nil?
+    key # comment or blank line
+  else
+    "#{key}=#{value}"
+  end
+end.join("\n") + "\n"
+
+File.write(File.join(ROOT, ".env"), env_content)
+puts "✅"
+
+# ─── Install dependencies ─────────────────────────────────────────────────────
+
+print "  Running bundle install (api)... "
+system("cd #{File.join(ROOT, 'api')} && bundle install --quiet 2>/dev/null")
+if $?.success?
+  puts "✅"
+else
+  puts "⚠️  (bundle install had warnings — check manually)"
+end
+
+web_dir = File.join(ROOT, "web")
+if File.exist?(File.join(web_dir, "package.json"))
+  print "  Running yarn install (web)... "
+  if system("command -v yarn >/dev/null 2>&1")
+    system("cd #{web_dir} && yarn install --silent 2>/dev/null")
+  else
+    system("cd #{web_dir} && npm install --silent 2>/dev/null")
+  end
+  if $?.success?
+    puts "✅"
+  else
+    puts "⚠️  (install had warnings — check manually)"
+  end
+end
+
+# ─── Database setup ────────────────────────────────────────────────────────────
+
+if database == "postgresql"
+  print "  Creating database... "
+  system("cd #{File.join(ROOT, 'api')} && bin/rails db:create 2>/dev/null")
+  if $?.success?
+    puts "✅"
+  else
+    puts "⚠️  (may already exist or Postgres not running)"
+  end
+
+  print "  Running migrations... "
+  system("cd #{File.join(ROOT, 'api')} && bin/rails db:migrate 2>/dev/null")
+  if $?.success?
+    puts "✅"
+  else
+    puts "⚠️  (run 'cd api && bin/rails db:migrate' manually)"
+  end
+end
+
+# ─── Done ──────────────────────────────────────────────────────────────────────
+
+puts ""
+puts prompt.decorate("  🚀 Setup complete!", :bold, :green)
+puts ""
+puts "  Your RailsKit app '#{app_name}' is ready."
+puts ""
+puts "  Next steps:"
+puts "    1. Review .env and add any missing API keys"
+puts "    2. Start development servers:  bin/dev"
+puts "    3. Visit:  http://localhost:5173"
+puts ""
+puts "  Config:     railskit.yml"
+puts "  API:        http://localhost:3000"
+puts "  Frontend:   http://localhost:5173"
+puts ""
+puts "  Happy building! 🎉"
+puts ""
