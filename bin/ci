@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+
+echo "========================================="
+echo "  RailsKit CI — Running all test suites"
+echo "========================================="
+echo ""
+
+# ── Part 1: RSpec (backend) ──
+echo "▶ Running RSpec (api/)..."
+cd "$ROOT_DIR/api"
+bundle exec rspec
+echo ""
+echo "✓ RSpec passed"
+echo ""
+
+# ── Part 2: Vitest (frontend) ──
+echo "▶ Running Vitest (web/)..."
+cd "$ROOT_DIR/web"
+npx vitest run
+echo ""
+echo "✓ Vitest passed"
+echo ""
+
+echo "========================================="
+echo "  ✅ All test suites passed"
+echo "========================================="
