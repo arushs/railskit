@@ -42,216 +42,250 @@ RailsKit is a monorepo with two apps and a shared configuration layer.
 
 ---
 
-## Configuration Flow
+## Monorepo Layout
+
+```
+railskit/
+├── api/                          # Rails 8 API-only application
+│   ├── app/
+│   │   ├── agents/               # RubyLLM agent classes
+│   │   ├── tools/                # RubyLLM tool classes (function calling)
+│   │   ├── controllers/api/v1/   # Versioned REST endpoints
+│   │   ├── models/               # ActiveRecord models (User, Plan, Chat, etc.)
+│   │   ├── channels/             # ActionCable channels (AgentChannel)
+│   │   ├── jobs/                 # Solid Queue background jobs
+│   │   ├── mailers/              # Transactional email templates
+│   │   ├── services/             # Business logic (StripeService, EmailService)
+│   │   └── adapters/             # Database adapters (Postgres, Supabase, Convex)
+│   ├── config/
+│   │   ├── routes.rb             # API route definitions
+│   │   ├── railskit.yml          # Generated config (from root railskit.yml)
+│   │   ├── database.yml          # Database connection
+│   │   ├── cable.yml             # ActionCable adapter config
+│   │   └── puma.rb               # Web server config
+│   ├── db/
+│   │   ├── migrate/              # Schema migrations
+│   │   └── seeds.rb              # Seed data (plans, demo user)
+│   └── Gemfile
+├── web/                          # React + Vite standalone SPA
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── ui/               # shadcn/ui primitives (Button, Card, Dialog)
+│   │   │   ├── landing/          # Landing page sections (Hero, Pricing, FAQ)
+│   │   │   └── dashboard/        # Dashboard (Sidebar, StatCard, AgentDashboard)
+│   │   ├── pages/                # Route-level page components
+│   │   ├── hooks/                # Custom hooks (useAuth, useUser, useAgent)
+│   │   ├── lib/
+│   │   │   ├── api.ts            # Axios wrapper with auth handling
+│   │   │   └── config.ts         # Frontend config (mirrors railskit.yml)
+│   │   └── stores/               # Zustand stores (UI theme, sidebar)
+│   ├── package.json
+│   └── vite.config.ts            # Dev server + /api proxy to Rails
+├── railskit.yml                  # Root config — source of truth
+├── bin/setup                     # Interactive setup wizard
+├── bin/dev                       # Start dev server (foreman/overmind)
+├── bin/deploy                    # Deploy helper
+├── Procfile.dev                  # Process definitions for dev
+├── Dockerfile.production         # Multi-stage production build
+├── render.yaml                   # Render blueprint
+└── fly.toml                      # Fly.io config
+```
+
+---
+
+## The Three Layers
 
 `railskit.yml` at the project root is the single source of truth. It's read by:
 
-1. **`RailsKit` module** (`api/config/initializers/railskit.rb`) — provides `RailsKit.config` with dot-notation access
-2. **Frontend config** (`web/src/config.ts`) — imports a generated JSON file or falls back to defaults
-3. **Initializers** — `ruby_llm.rb`, `stripe.rb`, `email.rb`, `database_adapter.rb` all read from `RailsKit.config`
+A Rails 8 API-only application. No views, no asset pipeline. Pure JSON API.
 
-```ruby
-# Accessing config in Rails
-RailsKit.config.app.name        # => "RailsKit"
-RailsKit.config.ai.provider     # => "openai"
-RailsKit.config.ai.model        # => "gpt-4o"
-RailsKit.config.auth.provider   # => "devise"
-RailsKit.config.payments.provider # => "stripe"
+**Request flow:**
+
+```
+HTTP Request → Rack Middleware (CORS, cookies) → Router → Controller → Service/Model → JSON Response
 ```
 
-Generate the frontend JSON config:
-```bash
-cd api && bin/rails railskit:generate_frontend_config
-# Writes web/src/railskit.generated.json
+Authentication uses Devise with JWT stored in httpOnly cookies. Every authenticated request includes the cookie automatically — no `Authorization` header management on the frontend.
+
+**Key API endpoints:**
+
 ```
+POST   /api/v1/auth/sign_in          # Login → sets JWT cookie
+POST   /api/v1/auth/sign_up          # Register
+DELETE /api/v1/auth/sign_out          # Logout → clears cookie
+GET    /api/v1/me                     # Current user
+GET    /api/v1/plans                  # List plans
+POST   /api/v1/checkout               # Create Stripe checkout session
+POST   /api/v1/webhooks/stripe        # Stripe webhooks
+GET    /api/v1/chats                  # List conversations
+POST   /api/v1/chats                  # Start new conversation
+GET    /api/v1/chats/:id/messages     # Conversation history
+GET    /api/health                    # Health check
+```
+
+### 2. React Frontend (`web/`)
+
+Standalone React + Vite app. Completely decoupled — communicates only via API calls and WebSockets.
+
+**Data flow:**
+
+```
+Component → useQuery hook → api.ts (Axios) → Rails API → JSON → TanStack Query cache → Re-render
+```
+
+Server state lives in TanStack Query's cache. Client-only state (theme, sidebar) lives in Zustand stores. This separation means you never mix API data with UI state.
+
+**Vite proxy:** In development, Vite proxies `/api` requests to Rails on port 3000 — no CORS issues locally.
+
+### 3. AI Agent Layer
+
+Bridges Rails and LLM providers via RubyLLM. Lives inside the Rails app (`app/agents/` and `app/tools/`).
+
+**Agent request flow:**
+
+```
+User sends message (React)
+  → WebSocket to AgentChannel (ActionCable)
+  → Loads Chat (acts_as_chat — persisted conversation)
+  → Dispatches to Agent class
+  → Agent calls LLM provider API
+  → LLM may invoke Tools (function calling)
+  → Tool executes Ruby code (DB query, API call, etc.)
+  → Tool result sent back to LLM
+  → LLM generates final response
+  → Response streams back chunk-by-chunk via ActionCable
+  → React renders each chunk as it arrives
+```
+
+Every message, tool call, token count, and cost is automatically persisted via RubyLLM's `acts_as_chat` model concern.
 
 ---
 
-## Authentication
+## Authentication Flow
 
-Default: **Devise + JWT** with httpOnly cookies.
-
-### Flow
-
-1. Client POSTs to `/api/auth/login` with `{ user: { email, password } }`
-2. Devise authenticates, `devise-jwt` generates a JWT
-3. The `JwtCookie` concern sets an httpOnly cookie (`jwt`) on the response
-4. Subsequent requests include the cookie automatically
-5. `ApplicationController#set_jwt_from_cookie` copies it to the `Authorization` header for Devise-JWT
-
-### Auth Methods
-
-| Method | Endpoint | Description |
-|---|---|---|
-| Email/password signup | `POST /api/auth/signup` | Creates user, returns JWT |
-| Email/password login | `POST /api/auth/login` | Returns JWT |
-| Logout | `DELETE /api/auth/logout` | Revokes JWT (denylist), clears cookie |
-| Current user | `GET /api/auth/me` | Returns user profile |
-| Google OAuth | `GET /api/auth/users/auth/google_oauth2` | Redirects to Google, then `/auth/callback` |
-| Magic link request | `POST /api/auth/magic_link` | Sends email with login link |
-| Magic link verify | `POST /api/auth/magic_link/verify` | Exchanges token for JWT |
-
-### Pluggable Providers
-
-Auth providers are defined in `lib/auth_providers/`. The default is `DeviseJwtProvider`. Supabase and Clerk provider stubs exist — implement the `Base` interface to swap.
-
-Set via `railskit.yml`:
-```yaml
-auth:
-  provider: "devise"    # devise | supabase | clerk
-  google_oauth: true
-  magic_links: true
 ```
+1. User submits login form (React)
+2. POST /api/v1/auth/sign_in → email + password
+3. Devise validates credentials, generates JWT
+4. JWT returned in Set-Cookie (httpOnly, Secure, SameSite=Strict)
+5. All subsequent requests include cookie automatically
+6. Rails middleware extracts JWT → loads current_user
+7. Logout: DELETE /api/v1/auth/sign_out → clears cookie
+```
+
+**Why httpOnly cookies:** Immune to XSS. JavaScript can never read the token. The browser sends it automatically. This is the secure default.
 
 ---
 
-## AI Agent Architecture
-
-Agents are plain Ruby classes in `app/agents/`. They use RubyLLM for LLM interaction.
-
-### Request Flow (Non-Streaming)
-
-```
-Client POST /api/agents/help_desk/chat { message: "..." }
-  → AgentsController#chat
-    → HelpDeskAgent.new(conversation:).ask(message)
-      → RubyLLM.chat.ask(message)   # calls OpenAI/Anthropic/etc.
-    ← response.content
-  ← JSON { response, conversation_id, model, usage }
-```
-
-### Request Flow (Streaming)
-
-```
-Client POST /api/agents/help_desk/stream { message: "..." }
-  → AgentsController#stream_chat
-    → Persists user message
-    → Enqueues AgentStreamJob
-  ← JSON { conversation_id }
-
-Client subscribes to AgentChatChannel (WebSocket)
-
-AgentStreamJob runs:
-  → agent.stream(message) { |chunk| broadcast chunk }
-  → Broadcasts: stream_start → stream_token* → stream_end
-  → Persists full assistant message
-```
-
-### Conversation Persistence
-
-- **Chat** model — represents a conversation. Has `agent_class`, `model_id`, optional `user` reference
-- **Message** model — belongs to Chat. Stores `role` (system/user/assistant/tool), `content`, `input_tokens`, `output_tokens`, `tool_calls`, `tool_result`
-- **ActsAsChat** concern — provides `to_llm_chat` (reconstructs RubyLLM chat from persisted messages), `persist_message`, `persist_exchange`
-- Both use UUID primary keys
-
----
-
-## Payments
-
-Stripe is the default. The flow:
-
-1. `GET /api/plans` — returns available plans (seeded from `db/seeds/plans.rb`)
-2. `POST /api/checkout` — creates Stripe Checkout Session, returns redirect URL
-3. User completes payment on Stripe
-4. `POST /api/webhooks/stripe` — handles `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed`
-5. Creates/updates `Subscription` records
-
-Models: `Plan` (name, slug, stripe_price_id, interval, amount_cents, features JSONB) and `Subscription` (links user + plan + Stripe IDs + status).
-
-A `Billable` concern provides `user.active_subscription`, `user.subscribed?`, `user.feature?(:key)`.
-
----
-
-## Email
-
-Adapter-based delivery via `EmailProvider`. Three providers ship:
-
-| Provider | How it works |
-|---|---|
-| Resend | SMTP relay (no extra gem needed) |
-| Postmark | SMTP relay |
-| SMTP | Bring your own server |
-
-Configured in `railskit.yml`:
-```yaml
-email:
-  provider: "resend"   # resend | postmark | smtp
-```
-
-Mailers included: `MagicLinkMailer`, `TransactionalMailer` (invoice receipt, subscription confirmation), `UserMailer` (welcome, password reset, magic link).
-
-In development, `letter_opener` opens emails in the browser.
-
----
-
-## Database Adapters
+## Database Adapter Pattern
 
 The `DatabaseAdapter` module provides a pluggable CRUD interface:
 
-| Adapter | How it works |
-|---|---|
-| PostgreSQL | Thin wrapper around ActiveRecord |
-| Supabase | Calls Supabase PostgREST API via HTTP |
-| Convex | Calls Convex HTTP API |
-
-Set in `railskit.yml`:
-```yaml
-database:
-  adapter: "postgresql"   # postgresql | supabase | convex
+```
+api/app/adapters/
+├── convex_adapter.rb       # HTTP-based adapter for Convex
+├── supabase_adapter.rb     # Postgres + Supabase-specific features
+└── postgres_adapter.rb     # Standard ActiveRecord/PostgreSQL
 ```
 
-**Note:** ActiveRecord models (User, Chat, Message, Plan, Subscription) use standard Rails migrations and work directly with PostgreSQL. The adapter layer is for custom tables where you want database-agnostic access.
+| Feature | PostgreSQL | Supabase | Convex |
+|---|---|---|---|
+| Real-time | ActionCable | Built-in | Built-in |
+| Migrations | SQL | SQL | Schema definitions |
+| Hosting | Self-managed | Managed | Managed |
+| Best for | Full control | Postgres + hosted | Speed, prototyping |
 
-The migration generator is adapter-aware:
-```bash
-bin/rails generate migration CreateProducts name:string price:decimal
-# PostgreSQL → standard ActiveRecord migration
-# Supabase  → raw SQL migration file
-# Convex    → TypeScript schema stub
+Standard ActiveRecord works for PostgreSQL and Supabase. Convex uses a thin HTTP adapter. The adapter pattern isolates database-specific code so switching backends only requires changing `railskit.yml` — application code stays the same.
+
+**Accessing config in Rails:**
+
+```ruby
+RailsKit.config.database.adapter    # => "postgresql"
+RailsKit.config.app.name            # => "My App"
+RailsKit.config.ai.default_model    # => "claude-sonnet-4"
 ```
 
 ---
 
 ## Frontend Architecture
 
-React 19 + Vite 7 + TailwindCSS v4 + React Router.
-
-### Key Routes
+Solid Queue (Rails 8 default) uses the database as the queue backend. No Redis required for basic usage.
 
 | Path | Component | Auth Required |
 |---|---|---|
-| `/` | LandingPage | No |
-| `/login` | SignInPage | No |
-| `/signup` | SignUpPage | No |
-| `/auth/magic-link` | MagicLinkPage | No |
-| `/auth/magic-link/verify` | MagicLinkVerifyPage | No |
-| `/auth/callback` | OAuthCallbackPage | No |
-| `/dashboard` | DashboardPage | Yes |
-| `/dashboard/settings` | SettingsPage | Yes |
-| `/dashboard/billing` | BillingPage | Yes |
-| `/agents` | DashboardOverview | No |
-| `/agents/conversations` | ConversationList | No |
-| `/agents/conversations/:id` | ConversationView | No |
-| `/agents/costs` | CostTracking | No |
-| `/agents/tools` | ToolUsage | No |
+| `StripeWebhookJob` | Stripe webhook | Process payment events |
+| `WelcomeEmailJob` | User registration | Send welcome email |
+| `AgentCostTrackingJob` | Agent response | Aggregate token costs |
 
-### Auth Context
+**Single-server shortcut:** Set `SOLID_QUEUE_IN_PUMA=true` to run the job worker inside the Puma process — one fewer process to manage in production.
+
+**When to upgrade:** If you're processing >1,000 jobs/minute, switch to Sidekiq + Redis. See the [Scaling Guide](scaling.md).
+
+---
+
+## WebSocket / Real-Time
+
+ActionCable handles WebSocket connections for:
+
+- **Agent streaming** — LLM response chunks broadcast as they arrive
+- **Presence** (v2) — who's online
+- **Notifications** (v2) — in-app push
+
+The React app connects via `@rails/actioncable` and subscribes to channels. The `useAgent` hook manages subscription lifecycle, chunk appending, and optimistic UI.
+
+**Scaling WebSockets:** Default uses Solid Cable (database-backed). For 500+ concurrent connections, switch to Redis adapter. For 10,000+, use AnyCable (Go-based WebSocket server). See [Scaling Guide](scaling.md).
 
 `AuthContext` wraps the app and provides: `user`, `signIn`, `signUp`, `signOut`, `requestMagicLink`, `verifyMagicLink`, `updateProfile`, `refreshUser`.
 
 The `AuthGuard` component protects routes that require authentication.
 
-### Agent Streaming Hook
+Since API and frontend run on different ports (and potentially different domains in production):
 
-`useAgentStream` handles the full streaming lifecycle:
-1. POSTs to `/api/agents/:name/stream`
-2. Subscribes to `AgentChatChannel` via ActionCable
-3. Receives `stream_start` → `stream_token*` → `stream_end` events
-4. Provides `sendMessage`, `isStreaming`, `streamContent` to components
+```ruby
+# config/initializers/cors.rb
+Rails.application.config.middleware.insert_before 0, Rack::Cors do
+  allow do
+    origins ENV.fetch("FRONTEND_URL", "http://localhost:5173")
+    resource "/api/*",
+      headers: :any,
+      methods: [:get, :post, :put, :patch, :delete, :options],
+      credentials: true  # Required for httpOnly cookies cross-origin
+  end
+end
+```
 
 ### API Client
 
-`web/src/lib/api.ts` provides a typed HTTP client that:
-- Prefixes all paths with `VITE_API_URL`
-- Sends `credentials: "include"` for httpOnly cookie auth
-- Exports `authApi` with methods for all auth endpoints
+---
+
+## Dev Environment
+
+`bin/dev` starts everything via foreman or overmind:
+
+```bash
+# Procfile.dev
+api: cd api && bin/rails server -p 3000
+web: cd web && npm run dev
+```
+
+- **Frontend HMR:** Vite hot module replacement — instant updates on save
+- **Rails reload:** Auto-reloads on file changes in development
+- **API proxy:** Vite proxies `/api` → `localhost:3000` — no CORS issues locally
+
+---
+
+## Production Build
+
+`Dockerfile.production` uses a multi-stage build:
+
+1. **Stage 1 (frontend-build):** Node 22 — `npm ci` + `npm run build` for React/Vite
+2. **Stage 2 (production):** Ruby 3.3-slim — installs gems, copies built frontend into `public/web/`, runs Rails with Thruster
+
+Features:
+- **jemalloc** for better memory management
+- **Non-root user** for security
+- **Bootsnap precompilation** for fast boot
+- **`db:prepare` on entrypoint** — creates or migrates automatically
+- **~250MB final image**
+
+The production build serves the React SPA from Rails' `public/web/` directory — single deployment, single domain, no CORS in production.
