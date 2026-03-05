@@ -9,7 +9,7 @@ const API_URL = import.meta.env.VITE_API_URL || "";
  * Returns an AbortController to cancel the stream.
  */
 export function streamViaSSE(
-  conversationId: number,
+  chatId: number,
   content: string,
   tools: ToolDefinition[] | undefined,
   onEvent: (event: AgentEvent) => void,
@@ -25,7 +25,7 @@ export function streamViaSSE(
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          conversation_id: conversationId,
+          chat_id: chatId,
           content,
           tools,
         }),

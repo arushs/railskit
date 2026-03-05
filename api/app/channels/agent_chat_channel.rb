@@ -28,7 +28,7 @@ class AgentChatChannel < ApplicationCable::Channel
 
     # Enqueue streaming in a background job to avoid blocking the channel
     AgentStreamJob.perform_later(
-      conversation_id: @chat.id,
+      chat_id: @chat.id,
       agent_name: agent_name,
       message: message
     )
@@ -37,7 +37,7 @@ class AgentChatChannel < ApplicationCable::Channel
     AgentChatChannel.broadcast_to(@chat, {
       type: "stream_error",
       error: "Something went wrong. Please try again.",
-      conversation_id: @chat.id
+      chat_id: @chat.id
     })
   end
 end

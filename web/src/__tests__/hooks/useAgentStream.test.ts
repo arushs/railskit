@@ -38,20 +38,20 @@ describe("useAgentStream", () => {
     expect(result.current.streamContent).toBe("");
   });
 
-  it("sendMessage posts to the API and returns conversation_id", async () => {
+  it("sendMessage posts to the API and returns chat_id", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: () => Promise.resolve({ conversation_id: "conv-123" }),
+      json: () => Promise.resolve({ chat_id: "chat-123" }),
     });
 
     const { result } = renderHook(() => useAgentStream());
 
-    let convId: string | null = null;
+    let chatId: string | null = null;
     await act(async () => {
-      convId = await result.current.sendMessage("help_desk", "Hello");
+      chatId = await result.current.sendMessage("help_desk", "Hello");
     });
 
-    expect(convId).toBe("conv-123");
+    expect(chatId).toBe("chat-123");
     expect(mockFetch).toHaveBeenCalledWith(
       expect.stringContaining("/api/agents/help_desk/stream"),
       expect.objectContaining({ method: "POST" })
@@ -61,7 +61,7 @@ describe("useAgentStream", () => {
   it("handles stream tokens and updates streamContent", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: () => Promise.resolve({ conversation_id: "conv-456" }),
+      json: () => Promise.resolve({ chat_id: "chat-456" }),
     });
 
     const onToken = vi.fn();
@@ -117,8 +117,8 @@ describe("useAgentStream", () => {
     const { result } = renderHook(() => useAgentStream({ onError }));
 
     await act(async () => {
-      const convId = await result.current.sendMessage("help_desk", "Hi");
-      expect(convId).toBeNull();
+      const chatId = await result.current.sendMessage("help_desk", "Hi");
+      expect(chatId).toBeNull();
     });
 
     expect(onError).toHaveBeenCalledWith("Not authenticated");
@@ -127,7 +127,7 @@ describe("useAgentStream", () => {
   it("calls onError on stream_error", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: () => Promise.resolve({ conversation_id: "conv-err" }),
+      json: () => Promise.resolve({ chat_id: "chat-err" }),
     });
 
     const onError = vi.fn();
