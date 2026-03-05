@@ -2,11 +2,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router";
 import { MessageSquare, DollarSign, Wrench, Zap } from "lucide-react";
-import { mockAgents, mockConversations, mockCostSummary, mockToolUsage } from "@/lib/mock-data";
+import { mockAgents, mockChats, mockCostSummary, mockToolUsage } from "@/lib/mock-data";
 
 export default function DashboardOverview() {
   const stats = [
-    { label: "Active Conversations", value: mockConversations.length.toString(), icon: MessageSquare, change: "+3 today" },
+    { label: "Active Chats", value: mockChats.length.toString(), icon: MessageSquare, change: "+3 today" },
     { label: "Total Spend", value: `$${mockCostSummary.totalCost.toFixed(2)}`, icon: DollarSign, change: `$${mockCostSummary.dailyCosts.at(-1)?.cost.toFixed(2)} today` },
     { label: "Tool Calls", value: mockToolUsage.totalCalls.toLocaleString(), icon: Wrench, change: `${mockToolUsage.uniqueTools} unique tools` },
     { label: "Total Requests", value: mockCostSummary.totalRequests.toLocaleString(), icon: Zap, change: `${(mockCostSummary.totalTokens / 1_000_000).toFixed(1)}M tokens` },
@@ -64,12 +64,12 @@ export default function DashboardOverview() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Recent Conversations</CardTitle>
-          <Link to="/agents/conversations" className="text-sm text-indigo-400 hover:text-indigo-300">{"View all \u2192"}</Link>
+          <Link to="/agents/chats" className="text-sm text-indigo-400 hover:text-indigo-300">{"View all \u2192"}</Link>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {mockConversations.slice(0, 3).map((conv) => (
-              <Link key={conv.id} to={`/agents/conversations/${conv.id}`}
+            {mockChats.slice(0, 3).map((conv) => (
+              <Link key={conv.id} to={`/agents/chats/${conv.id}`}
                 className="flex items-start gap-3 rounded-xl border border-zinc-800 bg-zinc-900/30 p-4 hover:bg-zinc-800/50 transition-colors">
                 <span className="text-xl mt-0.5">{conv.agentEmoji}</span>
                 <div className="min-w-0 flex-1">

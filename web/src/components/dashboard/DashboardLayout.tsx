@@ -4,7 +4,7 @@ import { MessageSquare, DollarSign, Wrench, LayoutDashboard, ArrowLeft } from "l
 
 const navItems = [
   { to: "/dashboard", label: "Overview", icon: LayoutDashboard, end: true },
-  { to: "/dashboard/conversations", label: "Conversations", icon: MessageSquare },
+  { to: "/dashboard/chats", label: "Chats", icon: MessageSquare },
   { to: "/dashboard/costs", label: "Costs", icon: DollarSign },
   { to: "/dashboard/tools", label: "Tools", icon: Wrench },
 ];

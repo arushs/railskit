@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Bot, User, Terminal, Cpu } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { mockConversations, mockMessages } from "@/lib/mock-data";
+import { mockChats, mockMessages } from "@/lib/mock-data";
 import type { Message } from "@/lib/agents-api";
 
 function MessageBubble({ message }: { message: Message }) {
@@ -23,7 +23,7 @@ function MessageBubble({ message }: { message: Message }) {
         <div className="flex items-center gap-2 mb-1.5 flex-wrap">
           <span className="text-xs font-medium text-zinc-300 capitalize">{message.role}</span>
           {message.toolName && <Badge variant="warning" className="text-[10px] px-1.5 py-0">{message.toolName}</Badge>}
-          {message.model && <Badge variant="secondary" className="text-[10px] px-1.5 py-0"><Cpu className="h-2.5 w-2.5 mr-1" />{message.model}</Badge>}
+          {message.model && <Badge variant="outline" className="text-[10px] px-1.5 py-0"><Cpu className="h-2.5 w-2.5 mr-1" />{message.model}</Badge>}
           <span className="text-[10px] text-zinc-500 ml-auto">
             {new Date(message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
           </span>
@@ -40,16 +40,16 @@ function MessageBubble({ message }: { message: Message }) {
   );
 }
 
-export default function ConversationView() {
+export default function ChatView() {
   const { id } = useParams<{ id: string }>();
-  const conversation = mockConversations.find((c) => c.id === id);
-  const messages = mockMessages.filter((m) => m.conversationId === id);
+  const chat = mockChats.find((c) => c.id === id);
+  const messages = mockMessages.filter((m) => m.chatId === id);
 
-  if (!conversation) {
+  if (!chat) {
     return (
       <div className="space-y-4">
-        <Link to="/agents/conversations" className="text-indigo-400 hover:text-indigo-300 text-sm">{"← Back to conversations"}</Link>
-        <Card><CardContent className="p-12 text-center"><p className="text-zinc-400">Conversation not found.</p></CardContent></Card>
+        <Link to="/agents/chats" className="text-indigo-400 hover:text-indigo-300 text-sm">{"← Back to chats"}</Link>
+        <Card><CardContent className="p-12 text-center"><p className="text-zinc-400">Chat not found.</p></CardContent></Card>
       </div>
     );
   }
@@ -57,13 +57,13 @@ export default function ConversationView() {
   return (
     <div className="space-y-6">
       <div className="flex items-start gap-4">
-        <Link to="/agents/conversations"><Button variant="ghost" size="icon"><ArrowLeft className="h-4 w-4" /></Button></Link>
+        <Link to="/agents/chats"><Button variant="ghost" size="icon"><ArrowLeft className="h-4 w-4" /></Button></Link>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-3">
-            <span className="text-2xl">{conversation.agentEmoji}</span>
+            <span className="text-2xl">{chat.agentEmoji}</span>
             <div>
-              <h1 className="text-xl font-bold truncate">{conversation.title}</h1>
-              <p className="text-sm text-zinc-400">{conversation.agentName} · {conversation.messageCount} messages · ${conversation.totalCost.toFixed(2)}</p>
+              <h1 className="text-xl font-bold truncate">{chat.title}</h1>
+              <p className="text-sm text-zinc-400">{chat.agentName} · {chat.messageCount} messages · ${chat.totalCost.toFixed(2)}</p>
             </div>
           </div>
         </div>

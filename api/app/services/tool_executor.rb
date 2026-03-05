@@ -4,14 +4,14 @@
 #
 # Register tools by adding entries to the TOOLS hash:
 #
-#   ToolExecutor::TOOLS["get_weather"] = ->(args, conversation) {
+#   ToolExecutor::TOOLS["get_weather"] = ->(args, chat) {
 #     WeatherService.fetch(args["location"])
 #   }
 #
 # Or define a class method:
 #
 #   class ToolExecutor
-#     register_tool "get_weather" do |args, conversation|
+#     register_tool "get_weather" do |args, chat|
 #       WeatherService.fetch(args["location"])
 #     end
 #   end
@@ -20,7 +20,7 @@ class ToolExecutor
   TOOLS = {}.freeze
 
   class << self
-    def execute(name:, arguments:, conversation:)
+    def execute(name:, arguments:, chat:)
       args = arguments.is_a?(String) ? JSON.parse(arguments) : arguments
       handler = registered_tools[name]
 
@@ -31,7 +31,7 @@ class ToolExecutor
         })
       end
 
-      result = handler.call(args, conversation)
+      result = handler.call(args, chat)
       result.is_a?(String) ? result : JSON.generate(result)
     rescue JSON::ParserError => e
       JSON.generate({ error: "Invalid tool arguments: #{e.message}" })
