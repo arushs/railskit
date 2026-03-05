@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
+import DarkModeToggle from "@/components/dashboard/DarkModeToggle";
+import ThemePicker from "@/components/dashboard/ThemePicker";
 
 export default function SettingsPage() {
   const { user, updateProfile } = useAuth();
@@ -128,6 +130,35 @@ export default function SettingsPage() {
               )}
             </div>
           </form>
+        </CardContent>
+      </Card>
+
+      <Separator />
+
+      <Card className="dark:bg-zinc-900/50 bg-white">
+        <CardHeader className="p-6">
+          <CardTitle className="text-zinc-900 dark:text-white">Appearance</CardTitle>
+          <CardDescription className="text-zinc-500 dark:text-zinc-400">
+            Customize the look and feel of the app.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="p-6 pt-0 space-y-6">
+          <div className="space-y-2">
+            <Label>Mode</Label>
+            <div className="flex items-center gap-2">
+              <DarkModeToggle />
+              <span className="text-sm text-zinc-500 dark:text-zinc-400">
+                Toggle between light and dark mode
+              </span>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Color Theme</Label>
+            <ThemePicker />
+            <p className="text-xs text-zinc-400">
+              Choose an accent color for buttons, links, and highlights.
+            </p>
+          </div>
         </CardContent>
       </Card>
 
