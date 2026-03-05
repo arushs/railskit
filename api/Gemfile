@@ -44,12 +44,6 @@ gem "omniauth-rails_csrf_protection", "~> 1.0"
 # Interactive CLI prompts
 gem "tty-prompt", "~> 0.23"
 
-# Authentication
-gem "devise", "~> 4.9"
-gem "devise-jwt", "~> 0.12"
-gem "omniauth-google-oauth2", "~> 1.2"
-gem "omniauth-rails_csrf_protection", "~> 1.0"
-
 # Payment processing
 gem "stripe", "~> 13.0"
 

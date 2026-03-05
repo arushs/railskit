@@ -2,20 +2,23 @@
 
 module ApplicationCable
   class Connection < ActionCable::Connection::Base
-    identified_by :current_user_id
+    identified_by :current_user
 
     def connect
-      self.current_user_id = find_verified_user_id
+      self.current_user = find_verified_user
     end
 
     private
 
-    def find_verified_user_id
+    def find_verified_user
       token = request.params["token"] || extract_token_from_cookie
       return reject_unauthorized_connection unless token
 
       payload = decode_jwt(token)
-      payload&.fetch("user_id", nil) || reject_unauthorized_connection
+      user_id = payload&.fetch("sub", nil)
+      return reject_unauthorized_connection unless user_id
+
+      User.find_by(id: user_id) || reject_unauthorized_connection
     rescue StandardError
       reject_unauthorized_connection
     end
