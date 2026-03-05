@@ -20,6 +20,7 @@ services:
     dockerContext: .
     plan: free
     healthCheckPath: /up
+    preDeployCommand: "bin/rails db:prepare"
     envVars:
       - key: RAILS_ENV
         value: production
