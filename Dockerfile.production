@@ -32,10 +32,13 @@ RUN apt-get update -qq && \
       libjemalloc2 && \
     rm -rf /var/lib/apt/lists /var/cache/apt/archives
 
-# Use jemalloc for better memory performance (detect arch automatically)
-RUN JEMALLOC_PATH=$(find /usr/lib -name "libjemalloc.so.2" | head -1) && \
-    echo "LD_PRELOAD=$JEMALLOC_PATH" >> /etc/environment
-ENV LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libjemalloc.so.2
+# Use jemalloc for better memory performance
+# Detect arch automatically — works on both x86_64 and aarch64
+ENV LD_PRELOAD=/usr/lib/libjemalloc.so.2
+RUN JEMALLOC_PATH=$(find /usr/lib -name "libjemalloc.so.2" -type f | head -1) && \
+    if [ -n "$JEMALLOC_PATH" ] && [ "$JEMALLOC_PATH" != "/usr/lib/libjemalloc.so.2" ]; then \
+      ln -sf "$JEMALLOC_PATH" /usr/lib/libjemalloc.so.2; \
+    fi
 ENV MALLOC_CONF="dirty_decay_ms:1000,narenas:2,background_thread:true"
 
 # Rails production defaults
@@ -48,7 +51,7 @@ ENV RAILS_ENV=production \
 
 WORKDIR /app
 
-# Install gems
+# Install gems (build deps installed temporarily, purged after)
 COPY api/Gemfile api/Gemfile.lock ./
 RUN apt-get update -qq && \
     apt-get install --no-install-recommends -y build-essential libpq-dev && \
@@ -75,6 +78,6 @@ USER rails
 
 EXPOSE 3000
 
-# Entrypoint runs db:prepare on server start
+# Entrypoint handles db:prepare on server start
 ENTRYPOINT ["./bin/docker-entrypoint"]
 CMD ["bundle", "exec", "thrust", "./bin/rails", "server", "-b", "0.0.0.0"]

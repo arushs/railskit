@@ -1,8 +1,14 @@
 # Fly.io deployment configuration for RailsKit
 # https://fly.io/docs/reference/configuration/
 #
-# Deploy:
+# First deploy:
 #   fly launch --copy-config --no-deploy
+#   fly secrets set SECRET_KEY_BASE=$(bin/rails secret)
+#   fly postgres create --name railskit-db
+#   fly postgres attach railskit-db
+#   fly deploy
+#
+# Subsequent deploys:
 #   fly deploy
 
 app = "railskit"
@@ -18,6 +24,8 @@ primary_region = "iad"
   RAILS_MAX_THREADS = "3"
   WEB_CONCURRENCY = "2"
   SOLID_QUEUE_IN_PUMA = "true"
+  # Skip entrypoint db:prepare — release_command handles it
+  SKIP_DB_PREPARE = "1"
 
 [http_service]
   internal_port = 3000

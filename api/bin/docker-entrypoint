@@ -1,8 +1,12 @@
 #!/bin/bash -e
 
-# If running the rails server then create or migrate existing database
+# Run db:prepare before server start — unless SKIP_DB_PREPARE is set.
+# Fly.io uses release_command for migrations (set SKIP_DB_PREPARE=1 there),
+# Render/Docker rely on this entrypoint.
 if [ "${@: -2:1}" == "./bin/rails" ] && [ "${@: -1:1}" == "server" ]; then
-  ./bin/rails db:prepare
+  if [ "${SKIP_DB_PREPARE}" != "1" ]; then
+    ./bin/rails db:prepare
+  fi
 fi
 
 exec "${@}"
