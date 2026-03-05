@@ -39,16 +39,6 @@ Rails.application.routes.draw do
 
 
 
-    # Conversations (dashboard chat)
-    resources :conversations, only: %i[index show create update destroy] do
-      member do
-        get :messages
-      end
-    end
-
-    # Agent SSE streaming fallback
-    post "agent/chat", to: "agent#chat"
-
     # Agents (RubyLLM-powered)
     post "agents/:agent_name/chat", to: "agents#chat"
     post "agents/:agent_name/stream", to: "agents#stream_chat"
