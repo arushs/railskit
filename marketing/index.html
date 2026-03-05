@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RailsKit — Ship Agentic AI Apps in a Weekend</title>
+  <meta name="description" content="The Rails + React boilerplate for building AI-powered apps. Auth, payments, agents, dashboard — all wired up. Ship in days, not months." />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚂</text></svg>" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwindcss.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              200: '#c7d2fe',
+              300: '#a5b4fc',
+              400: '#818cf8',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+              800: '#3730a3',
+              900: '#312e81',
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+            mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
+          },
+        }
+      }
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    body { background: #09090b; }
+    .gradient-text {
+      background: linear-gradient(135deg, #818cf8 0%, #c084fc 50%, #f472b6 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .gradient-border {
+      background: linear-gradient(135deg, rgba(129,140,248,0.15), rgba(192,132,252,0.15));
+      border: 1px solid rgba(129,140,248,0.2);
+    }
+    .gradient-cta {
+      background: linear-gradient(135deg, #6366f1, #8b5cf6, #a855f7);
+    }
+    .gradient-cta:hover {
+      background: linear-gradient(135deg, #4f46e5, #7c3aed, #9333ea);
+    }
+    .glow {
+      box-shadow: 0 0 60px rgba(99,102,241,0.15), 0 0 120px rgba(139,92,246,0.08);
+    }
+    .terminal {
+      background: #0c0c0f;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .terminal-header {
+      background: rgba(255,255,255,0.03);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .feature-card {
+      background: rgba(255,255,255,0.02);
+      border: 1px solid rgba(255,255,255,0.06);
+      transition: all 0.2s ease;
+    }
+    .feature-card:hover {
+      background: rgba(255,255,255,0.04);
+      border-color: rgba(129,140,248,0.3);
+      transform: translateY(-2px);
+    }
+    .faq-item {
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .comparison-table th, .comparison-table td {
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-6px); }
+    }
+    .hero-glow {
+      position: absolute;
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 70%);
+      top: -200px;
+      left: 50%;
+      transform: translateX(-50%);
+      pointer-events: none;
+    }
+    .cursor-blink {
+      animation: blink 1s step-end infinite;
+    }
+    @keyframes blink {
+      50% { opacity: 0; }
+    }
+    ::selection {
+      background: rgba(129,140,248,0.3);
+    }
+  </style>
+</head>
+<body class="dark text-zinc-100 font-sans antialiased">
+
+  <!-- Nav -->
+  <nav class="fixed top-0 w-full z-50 bg-zinc-950/80 backdrop-blur-xl border-b border-white/5">
+    <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+      <a href="#" class="flex items-center gap-2 text-lg font-bold">
+        <span class="text-xl">🚂</span>
+        <span>RailsKit</span>
+      </a>
+      <div class="hidden md:flex items-center gap-8 text-sm text-zinc-400">
+        <a href="#features" class="hover:text-white transition-colors">Features</a>
+        <a href="#demo" class="hover:text-white transition-colors">Demo</a>
+        <a href="#pricing" class="hover:text-white transition-colors">Pricing</a>
+        <a href="#faq" class="hover:text-white transition-colors">FAQ</a>
+      </div>
+      <a href="#pricing" class="gradient-cta text-white text-sm font-medium px-4 py-2 rounded-lg transition-all hover:shadow-lg hover:shadow-indigo-500/20">
+        Get RailsKit
+      </a>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="relative pt-32 pb-20 md:pt-44 md:pb-32 overflow-hidden">
+    <div class="hero-glow"></div>
+    <div class="max-w-4xl mx-auto px-6 text-center relative z-10">
+      <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium text-indigo-300 bg-indigo-500/10 border border-indigo-500/20 mb-8">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+        Early bird pricing — $100 off
+      </div>
+      <h1 class="text-4xl md:text-6xl lg:text-7xl font-extrabold tracking-tight leading-[1.1] mb-6">
+        Ship agentic AI apps<br />
+        <span class="gradient-text">in a weekend.</span>
+      </h1>
+      <p class="text-lg md:text-xl text-zinc-400 max-w-2xl mx-auto mb-10 leading-relaxed">
+        The production-ready Rails 8 + React 19 boilerplate with RubyLLM, auth, payments, and an agent dashboard — all wired up. Stop building infrastructure, start building products.
+      </p>
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+        <a href="#pricing" class="gradient-cta glow text-white font-semibold px-8 py-4 rounded-xl text-lg transition-all hover:shadow-xl hover:shadow-indigo-500/25 hover:scale-[1.02] active:scale-[0.98]">
+          Get RailsKit — <span class="line-through opacity-60">$249</span> $149
+        </a>
+        <a href="#demo" class="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors text-sm font-medium px-6 py-4">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"/></svg>
+          Watch the demo
+        </a>
+      </div>
+      <p class="text-xs text-zinc-600 mt-6">One payment. Lifetime updates. No subscriptions.</p>
+    </div>
+  </section>
+
+  <!-- Demo Video Placeholder -->
+  <section id="demo" class="py-20 md:py-28">
+    <div class="max-w-5xl mx-auto px-6">
+      <div class="gradient-border rounded-2xl overflow-hidden glow">
+        <div class="aspect-video flex flex-col items-center justify-center bg-zinc-900/50 relative group cursor-pointer">
+          <div class="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-purple-500/5"></div>
+          <div class="relative z-10 flex flex-col items-center gap-4">
+            <div class="w-20 h-20 rounded-full bg-white/10 backdrop-blur flex items-center justify-center group-hover:bg-white/15 group-hover:scale-110 transition-all">
+              <svg class="w-8 h-8 text-white ml-1" fill="currentColor" viewBox="0 0 20 20"><path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"/></svg>
+            </div>
+            <p class="text-zinc-300 font-medium text-lg">Watch the 2-minute demo</p>
+            <p class="text-zinc-500 text-sm">See RailsKit go from clone to deployed AI app</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Grid -->
+  <section id="features" class="py-20 md:py-28">
+    <div class="max-w-6xl mx-auto px-6">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl md:text-4xl font-bold mb-4">Everything you need to ship</h2>
+        <p class="text-zinc-400 text-lg max-w-xl mx-auto">Stop stitching together tutorials. RailsKit gives you production-grade infrastructure from day one.</p>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+
+        <div class="feature-card rounded-xl p-6">
+          <div class="text-3xl mb-3">🤖</div>
+          <h3 class="font-semibold mb-1.5">AI Agent Framework</h3>
+          <p class="text-sm text-zinc-400 leading-relaxed">RubyLLM integration with generators, streaming responses, and tool calling built in.</p>
+        </div>
+
+        <div class="feature-card rounded-xl p-6">
+          <div class="text-3xl mb-3">🔐</div>
+          <h3 class="font-semibold mb-1.5">Authentication</h3>
+          <p class="text-sm text-zinc-400 leading-relaxed">Devise + JWT + OAuth + Magic Links. Every auth pattern, ready to go.</p>
+        </div>
+
+        <div class="feature-card rounded-xl p-6">
+          <div class="text-3xl mb-3">💳</div>
+          <h3 class="font-semibold mb-1.5">Payments</h3>
+          <p class="text-sm text-zinc-400 leading-relaxed">Stripe + Lemon Squeezy. Subscriptions, one-time, usage-based — all wired.</p>
+        </div>
+
+        <div class="feature-card rounded-xl p-6">
+          <div class="text-3xl mb-3">📧</div>
+          <h3 class="font-semibold mb-1.5">Email</h3>
+          <p class="text-sm text-zinc-400 leading-relaxed">Resend, Postmark, or SMTP. Transactional and marketing emails configured.</p>
+        </div>
+
+        <div class="feature-card rounded-xl p-6">
+          <div class="text-3xl mb-3">🗄️</div>
+          <h3 class="font-semibold mb-1.5">Database</h3>
+          <p class="text-sm text-zinc-400 leading-relaxed">Postgres with Supabase and Convex options. Migrations, seeds, and schemas ready.</p>
+        </div>
+
+        <div class="feature-card rounded-xl p-6">
+          <div class="text-3xl mb-3">🎨</div>
+          <h3 class="font-semibold mb-1.5">Landing Page</h3>
+          <p class="text-sm text-zinc-400 leading-relaxed">Beautiful, conversion-optimized landing page ready to customize for your product.</p>
+        </div>
+
+        <div class="feature-card rounded-xl p-6">
+          <div class="text-3xl mb-3">📊</div>
+          <h3 class="font-semibold mb-1.5">Agent Dashboard</h3>
+          <p class="text-sm text-zinc-400 leading-relaxed">Monitor conversations, track costs, manage tools — full observability for your AI agents.</p>
+        </div>
+
+        <div class="feature-card rounded-xl p-6">
+          <div class="text-3xl mb-3">🚀</div>
+          <h3 class="font-semibold mb-1.5">One-Click Deploy</h3>
+          <p class="text-sm text-zinc-400 leading-relaxed">Deploy to Render, Fly.io, or Docker. Config files included, zero guesswork.</p>
+        </div>
+
+        <div class="feature-card rounded-xl p-6">
+          <div class="text-3xl mb-3">🛠️</div>
+          <h3 class="font-semibold mb-1.5">Setup Wizard</h3>
+          <p class="text-sm text-zinc-400 leading-relaxed">Interactive bin/setup walks you through every config step. Running in minutes.</p>
+        </div>
+
+        <div class="feature-card rounded-xl p-6">
+          <div class="text-3xl mb-3">🌙</div>
+          <h3 class="font-semibold mb-1.5">Dark Mode + Themes</h3>
+          <p class="text-sm text-zinc-400 leading-relaxed">System-aware dark mode with customizable theme tokens. Looks great out of the box.</p>
+        </div>
+
+        <div class="feature-card rounded-xl p-6">
+          <div class="text-3xl mb-3">📱</div>
+          <h3 class="font-semibold mb-1.5">Mobile Responsive</h3>
+          <p class="text-sm text-zinc-400 leading-relaxed">Every component tested on mobile. Touch-friendly UI that works everywhere.</p>
+        </div>
+
+        <div class="feature-card rounded-xl p-6">
+          <div class="text-3xl mb-3">📖</div>
+          <h3 class="font-semibold mb-1.5">Full Documentation</h3>
+          <p class="text-sm text-zinc-400 leading-relaxed">Comprehensive guides, API docs, and tutorials. Know exactly how everything works.</p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- Code Preview / Terminal -->
+  <section class="py-20 md:py-28">
+    <div class="max-w-4xl mx-auto px-6">
+      <div class="text-center mb-12">
+        <h2 class="text-3xl md:text-4xl font-bold mb-4">What you get</h2>
+        <p class="text-zinc-400 text-lg">Generate a full AI agent with one command. Seriously.</p>
+      </div>
+      <div class="terminal rounded-xl overflow-hidden glow">
+        <div class="terminal-header px-4 py-3 flex items-center gap-2">
+          <div class="flex gap-1.5">
+            <div class="w-3 h-3 rounded-full bg-red-500/80"></div>
+            <div class="w-3 h-3 rounded-full bg-yellow-500/80"></div>
+            <div class="w-3 h-3 rounded-full bg-green-500/80"></div>
+          </div>
+          <span class="text-xs text-zinc-500 ml-2 font-mono">~/my-ai-app</span>
+        </div>
+        <div class="p-6 font-mono text-sm leading-relaxed overflow-x-auto">
+          <div class="mb-4">
+            <span class="text-emerald-400">$</span> <span class="text-zinc-200">rails generate agent CustomerSupport</span>
+          </div>
+          <div class="text-zinc-500 mb-4">
+            <div>&nbsp;&nbsp;create&nbsp;&nbsp;<span class="text-indigo-400">app/agents/customer_support_agent.rb</span></div>
+            <div>&nbsp;&nbsp;create&nbsp;&nbsp;<span class="text-indigo-400">app/tools/search_knowledge_base_tool.rb</span></div>
+            <div>&nbsp;&nbsp;create&nbsp;&nbsp;<span class="text-indigo-400">app/tools/create_ticket_tool.rb</span></div>
+            <div>&nbsp;&nbsp;create&nbsp;&nbsp;<span class="text-indigo-400">app/channels/agent_channel.rb</span></div>
+            <div>&nbsp;&nbsp;create&nbsp;&nbsp;<span class="text-indigo-400">app/javascript/components/AgentChat.tsx</span></div>
+            <div>&nbsp;&nbsp;create&nbsp;&nbsp;<span class="text-indigo-400">spec/agents/customer_support_agent_spec.rb</span></div>
+            <div>&nbsp;&nbsp;&nbsp;route&nbsp;&nbsp;<span class="text-purple-400">mount AgentRouter => '/agents'</span></div>
+          </div>
+          <div class="mb-4">
+            <span class="text-emerald-400">$</span> <span class="text-zinc-200">bin/dev</span>
+          </div>
+          <div class="text-zinc-500">
+            <div><span class="text-emerald-400">✓</span> Rails 8.0 server running on <span class="text-indigo-400">http://localhost:3000</span></div>
+            <div><span class="text-emerald-400">✓</span> Vite dev server on <span class="text-indigo-400">http://localhost:5173</span></div>
+            <div><span class="text-emerald-400">✓</span> Agent streaming via ActionCable <span class="text-emerald-400">connected</span></div>
+          </div>
+          <div class="mt-4">
+            <span class="text-emerald-400">$</span> <span class="cursor-blink text-zinc-200">▌</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Comparison Table -->
+  <section class="py-20 md:py-28">
+    <div class="max-w-5xl mx-auto px-6">
+      <div class="text-center mb-12">
+        <h2 class="text-3xl md:text-4xl font-bold mb-4">How RailsKit compares</h2>
+        <p class="text-zinc-400 text-lg">The only boilerplate built for AI-native apps.</p>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="comparison-table w-full text-sm">
+          <thead>
+            <tr class="text-left text-zinc-400">
+              <th class="py-4 pr-4 font-medium"></th>
+              <th class="py-4 px-4 font-medium">
+                <span class="gradient-text font-bold text-base">RailsKit</span>
+              </th>
+              <th class="py-4 px-4 font-medium">ShipFast</th>
+              <th class="py-4 px-4 font-medium">Jumpstart Pro</th>
+              <th class="py-4 px-4 font-medium text-zinc-500">DIY</th>
+            </tr>
+          </thead>
+          <tbody class="text-zinc-300">
+            <tr>
+              <td class="py-4 pr-4 text-zinc-400 font-medium">Price</td>
+              <td class="py-4 px-4 font-semibold text-emerald-400">$149*</td>
+              <td class="py-4 px-4">$199</td>
+              <td class="py-4 px-4">$749</td>
+              <td class="py-4 px-4 text-zinc-500">$0 + your time</td>
+            </tr>
+            <tr>
+              <td class="py-4 pr-4 text-zinc-400 font-medium">Framework</td>
+              <td class="py-4 px-4">Rails + React</td>
+              <td class="py-4 px-4">Next.js</td>
+              <td class="py-4 px-4">Rails</td>
+              <td class="py-4 px-4 text-zinc-500">Any</td>
+            </tr>
+            <tr>
+              <td class="py-4 pr-4 text-zinc-400 font-medium">AI / Agents</td>
+              <td class="py-4 px-4">
+                <span class="text-emerald-400 font-bold">✓ Built-in</span>
+                <span class="block text-xs text-zinc-500">RubyLLM + generators</span>
+              </td>
+              <td class="py-4 px-4 text-zinc-500">✗ None</td>
+              <td class="py-4 px-4 text-zinc-500">✗ None</td>
+              <td class="py-4 px-4 text-zinc-500">Weeks of work</td>
+            </tr>
+            <tr>
+              <td class="py-4 pr-4 text-zinc-400 font-medium">Database</td>
+              <td class="py-4 px-4">Postgres + Supabase</td>
+              <td class="py-4 px-4">MongoDB / Supabase</td>
+              <td class="py-4 px-4">Postgres</td>
+              <td class="py-4 px-4 text-zinc-500">Your choice</td>
+            </tr>
+            <tr>
+              <td class="py-4 pr-4 text-zinc-400 font-medium">Setup Time</td>
+              <td class="py-4 px-4">
+                <span class="text-emerald-400 font-bold">5 minutes</span>
+              </td>
+              <td class="py-4 px-4">~30 min</td>
+              <td class="py-4 px-4">~20 min</td>
+              <td class="py-4 px-4 text-zinc-500">2-4 weeks</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="text-xs text-zinc-600 mt-4">* Early bird pricing. Regular price $249.</p>
+    </div>
+  </section>
+
+  <!-- Pricing -->
+  <section id="pricing" class="py-20 md:py-28">
+    <div class="max-w-2xl mx-auto px-6 text-center">
+      <h2 class="text-3xl md:text-4xl font-bold mb-4">Simple pricing</h2>
+      <p class="text-zinc-400 text-lg mb-12">One payment. Lifetime updates. No subscriptions.</p>
+
+      <div class="gradient-border rounded-2xl p-8 md:p-12 glow relative overflow-hidden">
+        <div class="absolute top-0 right-0 bg-emerald-500 text-black text-xs font-bold px-4 py-1.5 rounded-bl-xl">EARLY BIRD</div>
+        <div class="mb-6">
+          <span class="text-5xl md:text-6xl font-extrabold">$149</span>
+          <span class="text-zinc-400 ml-2 line-through text-xl">$249</span>
+        </div>
+        <p class="text-zinc-400 mb-8 text-sm">Lifetime access · Unlimited projects · All future updates</p>
+        <ul class="text-left text-sm text-zinc-300 space-y-3 mb-10 max-w-sm mx-auto">
+          <li class="flex items-center gap-3">
+            <svg class="w-5 h-5 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            Full source code — Rails 8 + React 19
+          </li>
+          <li class="flex items-center gap-3">
+            <svg class="w-5 h-5 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            AI agent framework with RubyLLM
+          </li>
+          <li class="flex items-center gap-3">
+            <svg class="w-5 h-5 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            Auth, payments, email — all configured
+          </li>
+          <li class="flex items-center gap-3">
+            <svg class="w-5 h-5 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            Agent dashboard with cost tracking
+          </li>
+          <li class="flex items-center gap-3">
+            <svg class="w-5 h-5 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            Deploy configs for Render, Fly.io, Docker
+          </li>
+          <li class="flex items-center gap-3">
+            <svg class="w-5 h-5 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            Discord community + priority support
+          </li>
+        </ul>
+        <a href="#" class="gradient-cta inline-block text-white font-semibold px-10 py-4 rounded-xl text-lg transition-all hover:shadow-xl hover:shadow-indigo-500/25 hover:scale-[1.02] active:scale-[0.98] w-full sm:w-auto">
+          Get RailsKit Now
+        </a>
+        <p class="text-xs text-zinc-500 mt-4">30-day money-back guarantee. No questions asked.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section id="faq" class="py-20 md:py-28">
+    <div class="max-w-3xl mx-auto px-6">
+      <h2 class="text-3xl md:text-4xl font-bold text-center mb-12">Frequently asked questions</h2>
+
+      <div class="space-y-0" id="faq-list">
+        <div class="faq-item py-6">
+          <button onclick="toggleFaq(this)" class="w-full text-left flex items-center justify-between gap-4">
+            <span class="font-medium text-zinc-200">Is this a SaaS or a boilerplate?</span>
+            <svg class="w-5 h-5 text-zinc-500 flex-shrink-0 transition-transform faq-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          </button>
+          <div class="faq-answer hidden mt-3 text-sm text-zinc-400 leading-relaxed pr-8">
+            RailsKit is a boilerplate — you get the full source code. Clone it, customize it, ship it as your own product. It's not a hosted service or a dependency. You own everything.
+          </div>
+        </div>
+
+        <div class="faq-item py-6">
+          <button onclick="toggleFaq(this)" class="w-full text-left flex items-center justify-between gap-4">
+            <span class="font-medium text-zinc-200">What Ruby and Rails versions does it support?</span>
+            <svg class="w-5 h-5 text-zinc-500 flex-shrink-0 transition-transform faq-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          </button>
+          <div class="faq-answer hidden mt-3 text-sm text-zinc-400 leading-relaxed pr-8">
+            RailsKit runs on Ruby 3.3+ and Rails 8.0+. The React frontend uses React 19 with Vite 6. We keep dependencies up to date and test against the latest stable releases.
+          </div>
+        </div>
+
+        <div class="faq-item py-6">
+          <button onclick="toggleFaq(this)" class="w-full text-left flex items-center justify-between gap-4">
+            <span class="font-medium text-zinc-200">Can I use it for multiple projects?</span>
+            <svg class="w-5 h-5 text-zinc-500 flex-shrink-0 transition-transform faq-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          </button>
+          <div class="faq-answer hidden mt-3 text-sm text-zinc-400 leading-relaxed pr-8">
+            Yes! Your license covers unlimited projects. Use RailsKit as the foundation for as many apps as you want — personal projects, client work, startups. No per-project fees.
+          </div>
+        </div>
+
+        <div class="faq-item py-6">
+          <button onclick="toggleFaq(this)" class="w-full text-left flex items-center justify-between gap-4">
+            <span class="font-medium text-zinc-200">Do I need AI or machine learning experience?</span>
+            <svg class="w-5 h-5 text-zinc-500 flex-shrink-0 transition-transform faq-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          </button>
+          <div class="faq-answer hidden mt-3 text-sm text-zinc-400 leading-relaxed pr-8">
+            Not at all. RailsKit abstracts the complexity with RubyLLM. If you can write Ruby, you can build AI agents. The generators scaffold everything — agent class, tools, streaming channel, and React components. Just fill in your logic.
+          </div>
+        </div>
+
+        <div class="faq-item py-6">
+          <button onclick="toggleFaq(this)" class="w-full text-left flex items-center justify-between gap-4">
+            <span class="font-medium text-zinc-200">What's the refund policy?</span>
+            <svg class="w-5 h-5 text-zinc-500 flex-shrink-0 transition-transform faq-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          </button>
+          <div class="faq-answer hidden mt-3 text-sm text-zinc-400 leading-relaxed pr-8">
+            30-day money-back guarantee, no questions asked. If RailsKit isn't right for you, email us and we'll refund you in full. We want you to be confident in your purchase.
+          </div>
+        </div>
+
+        <div class="faq-item py-6">
+          <button onclick="toggleFaq(this)" class="w-full text-left flex items-center justify-between gap-4">
+            <span class="font-medium text-zinc-200">What about updates? Do I get new features?</span>
+            <svg class="w-5 h-5 text-zinc-500 flex-shrink-0 transition-transform faq-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          </button>
+          <div class="faq-answer hidden mt-3 text-sm text-zinc-400 leading-relaxed pr-8">
+            Lifetime updates are included. When we add new features, integrations, or improvements, you get access immediately. Pull the latest changes from the repo and you're up to date.
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="border-t border-white/5 py-12">
+    <div class="max-w-6xl mx-auto px-6">
+      <div class="flex flex-col md:flex-row items-center justify-between gap-6">
+        <div class="flex items-center gap-2 text-sm font-semibold">
+          <span class="text-lg">🚂</span>
+          <span>RailsKit</span>
+        </div>
+        <div class="flex items-center gap-8 text-sm text-zinc-500">
+          <a href="#" class="hover:text-zinc-300 transition-colors">GitHub</a>
+          <a href="#" class="hover:text-zinc-300 transition-colors">Documentation</a>
+          <a href="#" class="hover:text-zinc-300 transition-colors">Discord</a>
+          <a href="#" class="hover:text-zinc-300 transition-colors">Twitter</a>
+        </div>
+        <p class="text-xs text-zinc-600">&copy; 2026 RailsKit. All rights reserved.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    function toggleFaq(button) {
+      const answer = button.nextElementSibling;
+      const chevron = button.querySelector('.faq-chevron');
+      const isOpen = !answer.classList.contains('hidden');
+
+      // Close all
+      document.querySelectorAll('.faq-answer').forEach(a => a.classList.add('hidden'));
+      document.querySelectorAll('.faq-chevron').forEach(c => c.style.transform = '');
+
+      if (!isOpen) {
+        answer.classList.remove('hidden');
+        chevron.style.transform = 'rotate(180deg)';
+      }
+    }
+
+    // Smooth scroll for nav links
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', function (e) {
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+          e.preventDefault();
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    });
+  </script>
+
+</body>
+</html>
