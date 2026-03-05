@@ -8,11 +8,11 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-indigo-600 text-white hover:bg-indigo-500 shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40",
+          "bg-theme-primary text-white hover:bg-theme-accent shadow-lg",
         secondary:
           "bg-zinc-800 text-white border border-zinc-700 hover:bg-zinc-700",
         ghost: "text-zinc-300 hover:text-white",
-        link: "text-indigo-400 hover:text-indigo-300 underline underline-offset-2",
+        link: "text-theme-primary hover:text-theme-accent underline underline-offset-2",
       },
       size: {
         default: "px-8 py-3.5 text-base",

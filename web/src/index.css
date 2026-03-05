@@ -1,6 +1,87 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
+/* ── Color Theme System ── */
+/* Each theme defines primary/accent HSL values used throughout the app */
+
+:root,
+[data-color-theme="blue"] {
+  --color-primary: 234 89% 74%;
+  --color-primary-foreground: 0 0% 100%;
+  --color-accent: 234 89% 64%;
+  --color-accent-foreground: 0 0% 100%;
+  --color-ring: 234 89% 74%;
+}
+
+[data-color-theme="purple"] {
+  --color-primary: 270 76% 68%;
+  --color-primary-foreground: 0 0% 100%;
+  --color-accent: 270 76% 58%;
+  --color-accent-foreground: 0 0% 100%;
+  --color-ring: 270 76% 68%;
+}
+
+[data-color-theme="green"] {
+  --color-primary: 152 60% 52%;
+  --color-primary-foreground: 0 0% 100%;
+  --color-accent: 152 60% 42%;
+  --color-accent-foreground: 0 0% 100%;
+  --color-ring: 152 60% 52%;
+}
+
+[data-color-theme="orange"] {
+  --color-primary: 25 95% 60%;
+  --color-primary-foreground: 0 0% 100%;
+  --color-accent: 25 95% 50%;
+  --color-accent-foreground: 0 0% 100%;
+  --color-ring: 25 95% 60%;
+}
+
+[data-color-theme="rose"] {
+  --color-primary: 346 77% 62%;
+  --color-primary-foreground: 0 0% 100%;
+  --color-accent: 346 77% 52%;
+  --color-accent-foreground: 0 0% 100%;
+  --color-ring: 346 77% 62%;
+}
+
+/* ── Theme Utility Classes ── */
+@utility theme-primary {
+  color: hsl(var(--color-primary));
+}
+
+@utility bg-theme-primary {
+  background-color: hsl(var(--color-primary));
+}
+
+@utility bg-theme-primary\/10 {
+  background-color: hsl(var(--color-primary) / 0.1);
+}
+
+@utility bg-theme-primary\/20 {
+  background-color: hsl(var(--color-primary) / 0.2);
+}
+
+@utility text-theme-primary {
+  color: hsl(var(--color-primary));
+}
+
+@utility border-theme-primary {
+  border-color: hsl(var(--color-primary));
+}
+
+@utility ring-theme-primary {
+  --tw-ring-color: hsl(var(--color-ring));
+}
+
+@utility bg-theme-accent {
+  background-color: hsl(var(--color-accent));
+}
+
+@utility text-theme-accent {
+  color: hsl(var(--color-accent));
+}
+
 html {
   scroll-behavior: smooth;
 }
