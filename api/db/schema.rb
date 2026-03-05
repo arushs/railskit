@@ -25,19 +25,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_04_153137) do
     t.index ["user_id"], name: "index_chats_on_user_id"
   end
 
-  create_table "conversations", force: :cascade do |t|
-    t.datetime "created_at", null: false
-    t.jsonb "metadata"
-    t.string "model"
-    t.string "provider"
-    t.text "system_prompt"
-    t.string "title"
-    t.datetime "updated_at", null: false
-    t.bigint "user_id", null: false
-    t.index ["user_id", "updated_at"], name: "index_conversations_on_user_id_and_updated_at"
-    t.index ["user_id"], name: "index_conversations_on_user_id"
-  end
-
   create_table "jwt_denylists", force: :cascade do |t|
     t.datetime "exp", null: false
     t.string "jti", null: false
@@ -47,7 +34,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_04_153137) do
   create_table "messages", force: :cascade do |t|
     t.bigint "chat_id"
     t.text "content"
-    t.bigint "conversation_id"
     t.decimal "cost_cents"
     t.datetime "created_at", null: false
     t.string "finish_reason"
@@ -63,8 +49,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_04_153137) do
     t.datetime "updated_at", null: false
     t.index ["chat_id", "created_at"], name: "index_messages_on_chat_id_and_created_at"
     t.index ["chat_id"], name: "index_messages_on_chat_id"
-    t.index ["conversation_id", "created_at"], name: "index_messages_on_conversation_id_and_created_at"
-    t.index ["conversation_id"], name: "index_messages_on_conversation_id"
     t.index ["role"], name: "index_messages_on_role"
   end
 
@@ -131,9 +115,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_04_153137) do
   end
 
   add_foreign_key "chats", "users"
-  add_foreign_key "conversations", "users"
   add_foreign_key "messages", "chats"
-  add_foreign_key "messages", "conversations"
   add_foreign_key "subscriptions", "plans"
   add_foreign_key "subscriptions", "users"
 end
