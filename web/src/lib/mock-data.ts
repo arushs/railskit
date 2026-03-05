@@ -1,4 +1,4 @@
-import type { Agent, Conversation, Message, CostSummary, ToolUsageSummary } from "./agents-api";
+import type { Agent, AgentChat, Message, CostSummary, ToolUsageSummary } from "./agents-api";
 
 export const mockAgents: Agent[] = [
   { id: "1", name: "Parker", emoji: "🎨", role: "Frontend Developer", status: "online" },
@@ -8,7 +8,7 @@ export const mockAgents: Agent[] = [
   { id: "5", name: "Friday", emoji: "🤖", role: "PM Agent", status: "online" },
 ];
 
-export const mockConversations: Conversation[] = [
+export const mockChats: AgentChat[] = [
   { id: "conv-1", agentId: "1", agentName: "Parker", agentEmoji: "🎨", title: "Agent Dashboard UI Implementation", preview: "Building the conversation list with search and filtering...", messageCount: 47, totalCost: 0.82, createdAt: "2026-03-04T10:00:00Z", updatedAt: "2026-03-04T10:55:00Z" },
   { id: "conv-2", agentId: "2", agentName: "Jarvis", agentEmoji: "⚙️", title: "API Endpoint Design for Agent Metrics", preview: "Setting up the /api/agents/costs endpoint with proper aggregation...", messageCount: 32, totalCost: 1.24, createdAt: "2026-03-04T09:15:00Z", updatedAt: "2026-03-04T10:30:00Z" },
   { id: "conv-3", agentId: "3", agentName: "Shuri", agentEmoji: "🔬", title: "Visual QA Review Landing Page", preview: "Running lighthouse and checking mobile breakpoints...", messageCount: 18, totalCost: 0.35, createdAt: "2026-03-03T16:00:00Z", updatedAt: "2026-03-03T17:20:00Z" },
@@ -17,11 +17,11 @@ export const mockConversations: Conversation[] = [
 ];
 
 export const mockMessages: Message[] = [
-  { id: "msg-1", conversationId: "conv-1", role: "user", content: "Build the agent dashboard UI with conversation list, cost tracking, and tool usage views.", createdAt: "2026-03-04T10:00:00Z" },
-  { id: "msg-2", conversationId: "conv-1", role: "assistant", content: "Starting with the typed API client and dashboard layout. Setting up routing first.", model: "claude-opus-4", provider: "anthropic", tokenUsage: { "prompt": 245, "completion": 180 }, cost: 0.023, createdAt: "2026-03-04T10:00:15Z" },
-  { id: "msg-3", conversationId: "conv-1", role: "assistant", content: "Created agents-api.ts with full type definitions for Agent, Conversation, Message, CostBreakdown, and ToolUsageStat.", model: "claude-opus-4", provider: "anthropic", toolName: "write", tokenUsage: { "prompt": 890, "completion": 420 }, cost: 0.065, createdAt: "2026-03-04T10:02:30Z" },
-  { id: "msg-4", conversationId: "conv-1", role: "tool", content: "Successfully wrote 4123 bytes to agents-api.ts", toolName: "write", createdAt: "2026-03-04T10:02:31Z" },
-  { id: "msg-5", conversationId: "conv-1", role: "assistant", content: "Building the dashboard layout with navigation. Using the existing dark theme with zinc/indigo palette.", model: "claude-opus-4", provider: "anthropic", tokenUsage: { "prompt": 1200, "completion": 680 }, cost: 0.094, createdAt: "2026-03-04T10:05:00Z" },
+  { id: "msg-1", chatId: "conv-1", role: "user", content: "Build the agent dashboard UI with conversation list, cost tracking, and tool usage views.", createdAt: "2026-03-04T10:00:00Z" },
+  { id: "msg-2", chatId: "conv-1", role: "assistant", content: "Starting with the typed API client and dashboard layout. Setting up routing first.", model: "claude-opus-4", provider: "anthropic", tokenUsage: { "prompt": 245, "completion": 180 }, cost: 0.023, createdAt: "2026-03-04T10:00:15Z" },
+  { id: "msg-3", chatId: "conv-1", role: "assistant", content: "Created agents-api.ts with full type definitions for Agent, Conversation, Message, CostBreakdown, and ToolUsageStat.", model: "claude-opus-4", provider: "anthropic", toolName: "write", tokenUsage: { "prompt": 890, "completion": 420 }, cost: 0.065, createdAt: "2026-03-04T10:02:30Z" },
+  { id: "msg-4", chatId: "conv-1", role: "tool", content: "Successfully wrote 4123 bytes to agents-api.ts", toolName: "write", createdAt: "2026-03-04T10:02:31Z" },
+  { id: "msg-5", chatId: "conv-1", role: "assistant", content: "Building the dashboard layout with navigation. Using the existing dark theme with zinc/indigo palette.", model: "claude-opus-4", provider: "anthropic", tokenUsage: { "prompt": 1200, "completion": 680 }, cost: 0.094, createdAt: "2026-03-04T10:05:00Z" },
 ];
 
 export const mockCostSummary: CostSummary = {

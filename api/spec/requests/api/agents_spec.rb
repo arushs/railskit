@@ -31,13 +31,13 @@ RSpec.describe "Agents API", type: :request do
       expect(response).to have_http_status(:ok)
       body = response.parsed_body
       expect(body["response"]).to eq("Hello! How can I help?")
-      expect(body["conversation_id"]).to be_present
+      expect(body["chat_id"]).to be_present
       expect(body["model"]).to eq("gpt-4o")
       expect(body["usage"]["input_tokens"]).to eq(50)
       expect(body["usage"]["output_tokens"]).to eq(25)
     end
 
-    it "creates a conversation" do
+    it "creates a chat" do
       expect {
         post "/api/agents/help_desk/chat",
              params: { message: "Hi" },
@@ -45,11 +45,11 @@ RSpec.describe "Agents API", type: :request do
       }.to change(Chat, :count).by(1)
     end
 
-    it "reuses existing conversation" do
+    it "reuses existing chat" do
       chat = create(:chat, agent_class: "HelpDeskAgent")
       expect {
         post "/api/agents/help_desk/chat",
-             params: { message: "Hi", conversation_id: chat.id },
+             params: { message: "Hi", chat_id: chat.id },
              as: :json
       }.not_to change(Chat, :count)
     end
@@ -60,14 +60,14 @@ RSpec.describe "Agents API", type: :request do
       allow(AgentStreamJob).to receive(:perform_later)
     end
 
-    it "enqueues a streaming job and returns conversation_id" do
+    it "enqueues a streaming job and returns chat_id" do
       post "/api/agents/help_desk/stream",
            params: { message: "Stream me" },
            as: :json
 
       expect(response).to have_http_status(:ok)
       body = response.parsed_body
-      expect(body["conversation_id"]).to be_present
+      expect(body["chat_id"]).to be_present
       expect(AgentStreamJob).to have_received(:perform_later).with(
         hash_including(message: "Stream me")
       )
@@ -78,8 +78,8 @@ RSpec.describe "Agents API", type: :request do
            params: { message: "Hello stream" },
            as: :json
 
-      conversation_id = response.parsed_body["conversation_id"]
-      chat = Chat.find(conversation_id)
+      chat_id = response.parsed_body["chat_id"]
+      chat = Chat.find(chat_id)
       expect(chat.messages.last.content).to eq("Hello stream")
       expect(chat.messages.last.role).to eq("user")
     end

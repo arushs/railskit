@@ -56,14 +56,13 @@ export interface AuthResponse {
   token: string;
 }
 
-// ── Conversations API ──
+// ── Chats API ──
 
-export interface Conversation {
+export interface Chat {
   id: number;
   title: string | null;
-  model: string;
-  provider: string;
-  system_prompt?: string | null;
+  agent_class: string;
+  model_id?: string | null;
   metadata?: Record<string, unknown>;
   messages?: Message[];
   created_at: string;
@@ -83,24 +82,24 @@ export interface Message {
   created_at?: string;
 }
 
-export const conversationsApi = {
+export const chatsApi = {
   list: (limit = 50, offset = 0) =>
-    api.get<{ conversations: Conversation[] }>(`/api/conversations?limit=${limit}&offset=${offset}`),
+    api.get<{ chats: Chat[] }>(`/api/chats?limit=${limit}&offset=${offset}`),
 
   get: (id: number) =>
-    api.get<{ conversation: Conversation }>(`/api/conversations/${id}`),
+    api.get<{ chat: Chat }>(`/api/chats/${id}`),
 
-  create: (data: { title?: string; model?: string; provider?: string; system_prompt?: string }) =>
-    api.post<{ conversation: Conversation }>("/api/conversations", { conversation: data }),
+  create: (data: { title?: string; agent_class?: string }) =>
+    api.post<{ chat: Chat }>("/api/chats", { chat: data }),
 
-  update: (id: number, data: { title?: string; model?: string; system_prompt?: string }) =>
-    api.patch<{ conversation: Conversation }>(`/api/conversations/${id}`, { conversation: data }),
+  update: (id: number, data: { title?: string; model_id?: string }) =>
+    api.patch<{ chat: Chat }>(`/api/chats/${id}`, { chat: data }),
 
   delete: (id: number) =>
-    api.delete<void>(`/api/conversations/${id}`),
+    api.delete<void>(`/api/chats/${id}`),
 
   messages: (id: number, limit = 100, offset = 0) =>
-    api.get<{ messages: Message[] }>(`/api/conversations/${id}/messages?limit=${limit}&offset=${offset}`),
+    api.get<{ messages: Message[] }>(`/api/chats/${id}/messages?limit=${limit}&offset=${offset}`),
 };
 
 // ── Auth API ──

@@ -17,8 +17,8 @@ import DashboardPage from "./pages/DashboardPage";
 import SettingsPage from "./pages/SettingsPage";
 import BillingPage from "./pages/BillingPage";
 import DashboardOverview from "./pages/dashboard/DashboardOverview";
-import ConversationList from "./pages/dashboard/ConversationList";
-import ConversationView from "./pages/dashboard/ConversationView";
+import ChatList from "./pages/dashboard/ChatList";
+import ChatView from "./pages/dashboard/ChatView";
 import CostTracking from "./pages/dashboard/CostTracking";
 import ToolUsage from "./pages/dashboard/ToolUsage";
 import BlogIndexPage from "./pages/BlogIndexPage";
@@ -49,8 +49,8 @@ createRoot(document.getElementById("root")!).render(
               </Route>
               {/* Agent Dashboard */}
               <Route path="/agents" element={<AgentDashboardLayout><DashboardOverview /></AgentDashboardLayout>} />
-              <Route path="/agents/conversations" element={<AgentDashboardLayout><ConversationList /></AgentDashboardLayout>} />
-              <Route path="/agents/conversations/:id" element={<AgentDashboardLayout><ConversationView /></AgentDashboardLayout>} />
+              <Route path="/agents/chats" element={<AgentDashboardLayout><ChatList /></AgentDashboardLayout>} />
+              <Route path="/agents/chats/:id" element={<AgentDashboardLayout><ChatView /></AgentDashboardLayout>} />
               <Route path="/agents/costs" element={<AgentDashboardLayout><CostTracking /></AgentDashboardLayout>} />
               <Route path="/agents/tools" element={<AgentDashboardLayout><ToolUsage /></AgentDashboardLayout>} />
 

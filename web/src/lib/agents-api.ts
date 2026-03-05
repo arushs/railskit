@@ -10,7 +10,7 @@ export interface Agent {
 
 export interface Message {
   id: string;
-  conversationId: string;
+  chatId: string;
   role: "user" | "assistant" | "system" | "tool";
   content: string;
   model?: string;
@@ -21,7 +21,7 @@ export interface Message {
   createdAt: string;
 }
 
-export interface Conversation {
+export interface AgentChat {
   id: string;
   agentId: string;
   agentName: string;
@@ -77,7 +77,7 @@ export async function listAgents() {
   return api.get<Agent[]>("/api/agents");
 }
 
-export async function listConversations(params?: {
+export async function listChats(params?: {
   agentId?: string;
   search?: string;
   page?: number;
@@ -89,17 +89,17 @@ export async function listConversations(params?: {
   if (params?.page) qs.set("page", String(params.page));
   if (params?.pageSize) qs.set("page_size", String(params.pageSize));
   const query = qs.toString();
-  return api.get<PaginatedResponse<Conversation>>(
-    `/api/agents/conversations${query ? `?${query}` : ""}`,
+  return api.get<PaginatedResponse<AgentChat>>(
+    `/api/agents/chats${query ? `?${query}` : ""}`,
   );
 }
 
-export async function getConversation(id: string) {
-  return api.get<Conversation>(`/api/agents/conversations/${id}`);
+export async function getChat(id: string) {
+  return api.get<AgentChat>(`/api/agents/chats/${id}`);
 }
 
-export async function getConversationMessages(
-  conversationId: string,
+export async function getChatMessages(
+  chatId: string,
   params?: { page?: number; pageSize?: number },
 ) {
   const qs = new URLSearchParams();
@@ -107,17 +107,17 @@ export async function getConversationMessages(
   if (params?.pageSize) qs.set("page_size", String(params.pageSize));
   const query = qs.toString();
   return api.get<PaginatedResponse<Message>>(
-    `/api/agents/conversations/${conversationId}/messages${query ? `?${query}` : ""}`,
+    `/api/agents/chats/${chatId}/messages${query ? `?${query}` : ""}`,
   );
 }
 
 /**
  * @deprecated Use `useAgentStream` hook for ActionCable-based streaming instead.
  */
-export function streamConversation(conversationId: string): EventSource {
+export function streamChat(chatId: string): EventSource {
   const base = import.meta.env.VITE_API_URL || "";
   return new EventSource(
-    `${base}/api/agents/conversations/${conversationId}/stream`,
+    `${base}/api/agents/chats/${chatId}/stream`,
   );
 }
 
@@ -125,11 +125,11 @@ export function streamConversation(conversationId: string): EventSource {
 export async function startStreamChat(
   agentName: string,
   message: string,
-  conversationId?: string,
+  chatId?: string,
 ) {
-  return api.post<{ conversation_id: string }>(`/api/agents/${agentName}/stream`, {
+  return api.post<{ chat_id: string }>(`/api/agents/${agentName}/stream`, {
     message,
-    conversation_id: conversationId,
+    chat_id: chatId,
   });
 }
 

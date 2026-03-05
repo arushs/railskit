@@ -23,7 +23,7 @@ describe("DashboardOverview", () => {
 
   it("displays stat cards with mock data", () => {
     renderOverview();
-    expect(screen.getByText("Active Conversations")).toBeInTheDocument();
+    expect(screen.getByText("Active Chats")).toBeInTheDocument();
     expect(screen.getByText("Total Spend")).toBeInTheDocument();
     expect(screen.getByText("Tool Calls")).toBeInTheDocument();
     expect(screen.getByText("Total Requests")).toBeInTheDocument();

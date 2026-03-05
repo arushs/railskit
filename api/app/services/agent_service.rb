@@ -5,7 +5,7 @@
 # a unified streaming interface.
 #
 # Usage:
-#   service = AgentService.new(conversation, tools: [...])
+#   service = AgentService.new(chat, tools: [...])
 #   result = service.stream_response do |event|
 #     # event = { type: "chunk", data: { content: "..." } }
 #     ActionCable.broadcast(...)
@@ -18,11 +18,14 @@ class AgentService
     "google" => :stream_google
   }.freeze
 
-  def initialize(conversation, tools: nil)
-    @conversation = conversation
+  def initialize(chat, tools: nil)
+    @chat = chat
     @tools = tools
-    @provider = conversation.provider
-    @model = conversation.model
+
+    # Pull provider and model from config (Chat doesn't store these)
+    ai_config = Rails.application.config.railskit.ai
+    @provider = ai_config.provider
+    @model = chat.model_id || ai_config.model
   end
 
   # Streams the response, yielding ActionCable-formatted events.
@@ -37,14 +40,7 @@ class AgentService
   private
 
   def messages_payload
-    history = @conversation.message_history
-
-    # Prepend system prompt if set
-    if @conversation.system_prompt.present?
-      history.unshift({ role: "system", content: @conversation.system_prompt })
-    end
-
-    history
+    @chat.message_history
   end
 
   # ── OpenAI-compatible streaming (works with OpenAI, Azure, local) ──
@@ -132,7 +128,7 @@ class AgentService
 
     # Persist assistant message
     tool_calls_final = tool_calls_acc.any? ? tool_calls_acc.values : nil
-    assistant_msg = @conversation.messages.create!(
+    assistant_msg = @chat.messages.create!(
       role: "assistant",
       content: full_content.presence,
       tool_calls: tool_calls_final,
@@ -291,7 +287,7 @@ class AgentService
     tool_calls_final = tool_calls.any? ? tool_calls : nil
     total_tokens = (usage["input_tokens"] || 0) + (usage["output_tokens"] || 0)
 
-    assistant_msg = @conversation.messages.create!(
+    assistant_msg = @chat.messages.create!(
       role: "assistant",
       content: full_content.presence,
       tool_calls: tool_calls_final,
@@ -388,7 +384,7 @@ class AgentService
       end
     end
 
-    assistant_msg = @conversation.messages.create!(
+    assistant_msg = @chat.messages.create!(
       role: "assistant",
       content: full_content.presence,
       finish_reason: "stop",
