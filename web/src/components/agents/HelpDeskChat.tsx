@@ -10,7 +10,7 @@ interface Message {
 export function HelpDeskChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [chatId, setChatId] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const streamMsgId = useRef<string | null>(null);
 
@@ -79,13 +79,13 @@ export function HelpDeskChat() {
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
 
-    const convId = await sendMessage(
+    const newChatId = await sendMessage(
       "help_desk",
       userMsg.content,
-      conversationId ?? undefined
+      chatId ?? undefined
     );
-    if (convId && !conversationId) {
-      setConversationId(convId);
+    if (newChatId && !chatId) {
+      setChatId(newChatId);
     }
   }
 

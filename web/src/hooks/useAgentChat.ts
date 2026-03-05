@@ -12,8 +12,8 @@ import type {
 import type { Subscription } from "@rails/actioncable";
 
 interface UseAgentChatOptions {
-  /** The conversation ID to connect to */
-  conversationId: number;
+  /** The chat ID to connect to */
+  chatId: number;
   /** JWT token for ActionCable auth */
   token?: string;
   /** Tool definitions to send with each message */
@@ -41,7 +41,7 @@ interface UseAgentChatOptions {
  * @example
  * ```tsx
  * const { messages, sendMessage, isStreaming, streamingContent } = useAgentChat({
- *   conversationId: 42,
+ *   chatId: 42,
  *   token: user.jwt,
  *   tools: [{ type: "function", function: { name: "search", ... } }],
  *   onToolCall: (tc) => console.log("Tool called:", tc.function.name),
@@ -58,7 +58,7 @@ interface UseAgentChatOptions {
  */
 export function useAgentChat(options: UseAgentChatOptions): UseAgentChatReturn {
   const {
-    conversationId,
+    chatId,
     token,
     tools,
     initialMessages = [],
@@ -163,14 +163,14 @@ export function useAgentChat(options: UseAgentChatOptions): UseAgentChatReturn {
   // ── ActionCable Connection ──
 
   useEffect(() => {
-    if (forceSSE || !conversationId) return;
+    if (forceSSE || !chatId) return;
 
     setConnectionStatus("connecting");
 
     try {
       const consumer = getConsumer(token);
       const subscription = consumer.subscriptions.create(
-        { channel: "AgentChannel", conversation_id: conversationId },
+        { channel: "AgentChatChannel", chat_id: chatId },
         {
           connected() {
             setConnectionStatus("connected");
@@ -198,7 +198,7 @@ export function useAgentChat(options: UseAgentChatOptions): UseAgentChatReturn {
       setConnectionStatus("error");
       setError((err as Error).message);
     }
-  }, [conversationId, token, forceSSE, handleEvent]);
+  }, [chatId, token, forceSSE, handleEvent]);
 
   // ── Send Message ──
 
@@ -224,7 +224,7 @@ export function useAgentChat(options: UseAgentChatOptions): UseAgentChatReturn {
         // SSE fallback
         sseAbortRef.current?.abort();
         sseAbortRef.current = streamViaSSE(
-          conversationId,
+          chatId,
           content,
           tools,
           handleEvent,
@@ -242,7 +242,7 @@ export function useAgentChat(options: UseAgentChatOptions): UseAgentChatReturn {
         subscriptionRef.current?.perform("send_message", { content, tools });
       }
     },
-    [conversationId, tools, forceSSE, connectionStatus, isStreaming, handleEvent, onError]
+    [chatId, tools, forceSSE, connectionStatus, isStreaming, handleEvent, onError]
   );
 
   // ── Computed Values ──

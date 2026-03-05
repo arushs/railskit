@@ -7,7 +7,7 @@ const WS_BASE = import.meta.env.VITE_WS_URL || API_BASE.replace(/^http/, "ws");
 interface StreamToken {
   type: "stream_start" | "stream_token" | "stream_end" | "stream_error";
   token?: string;
-  conversation_id?: string;
+  chat_id?: string;
   message_id?: string;
   model?: string;
   error?: string;
@@ -38,15 +38,15 @@ interface UseAgentStreamReturn {
   sendMessage: (
     agentName: string,
     message: string,
-    conversationId?: string
+    chatId?: string
   ) => Promise<string | null>;
   /** Whether we're currently streaming a response */
   isStreaming: boolean;
   /** The accumulated content so far during streaming */
   streamContent: string;
-  /** Subscribe to a specific conversation (auto-called by sendMessage) */
-  subscribe: (conversationId: string) => void;
-  /** Unsubscribe from the current conversation */
+  /** Subscribe to a specific chat (auto-called by sendMessage) */
+  subscribe: (chatId: string) => void;
+  /** Unsubscribe from the current chat */
   unsubscribe: () => void;
 }
 
@@ -54,8 +54,8 @@ interface UseAgentStreamReturn {
  * React hook for streaming agent responses via ActionCable.
  *
  * Flow:
- * 1. `sendMessage` POSTs to /api/agents/:name/stream → gets conversation_id
- * 2. Subscribes to AgentChatChannel with that conversation_id
+ * 1. `sendMessage` POSTs to /api/agents/:name/stream → gets chat_id
+ * 2. Subscribes to AgentChatChannel with that chat_id
  * 3. Server enqueues AgentStreamJob which broadcasts tokens via ActionCable
  * 4. Hook receives stream_start → stream_token* → stream_end events
  */
@@ -101,14 +101,14 @@ export function useAgentStream(
   }, []);
 
   const subscribe = useCallback(
-    (conversationId: string) => {
+    (chatId: string) => {
       // Clean up any existing subscription
       unsubscribe();
 
       if (!consumerRef.current) return;
 
       subscriptionRef.current = consumerRef.current.subscriptions.create(
-        { channel: "AgentChatChannel", conversation_id: conversationId },
+        { channel: "AgentChatChannel", chat_id: chatId },
         {
           received(data: StreamToken) {
             switch (data.type) {
@@ -143,23 +143,17 @@ export function useAgentStream(
           },
 
           connected() {
-            console.log(
-              "[AgentStream] Connected to conversation",
-              conversationId
-            );
+            console.log("[AgentStream] Connected to chat", chatId);
           },
 
           disconnected() {
-            console.log(
-              "[AgentStream] Disconnected from conversation",
-              conversationId
-            );
+            console.log("[AgentStream] Disconnected from chat", chatId);
           },
 
           rejected() {
             console.error(
-              "[AgentStream] Subscription rejected for conversation",
-              conversationId
+              "[AgentStream] Subscription rejected for chat",
+              chatId
             );
             onErrorRef.current?.(
               "Connection rejected. Please check your authentication."
@@ -175,7 +169,7 @@ export function useAgentStream(
     async (
       agentName: string,
       message: string,
-      conversationId?: string
+      chatId?: string
     ): Promise<string | null> => {
       try {
         const res = await fetch(
@@ -186,7 +180,7 @@ export function useAgentStream(
             credentials: "include",
             body: JSON.stringify({
               message,
-              conversation_id: conversationId,
+              chat_id: chatId,
             }),
           }
         );
@@ -200,12 +194,12 @@ export function useAgentStream(
         }
 
         const data = await res.json();
-        const convId = data.conversation_id;
+        const newChatId = data.chat_id;
 
-        // Subscribe to the conversation channel to receive streamed tokens
-        subscribe(convId);
+        // Subscribe to the chat channel to receive streamed tokens
+        subscribe(newChatId);
 
-        return convId;
+        return newChatId;
       } catch (err) {
         onErrorRef.current?.(
           err instanceof Error ? err.message : "Network error"
