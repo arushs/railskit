@@ -8,6 +8,7 @@ import {
   Testimonials,
   CTA,
   Footer,
+  AgentDemo,
 } from "../components/landing";
 import SEO from "../components/seo/SEO";
 import {
@@ -73,6 +74,7 @@ export default function LandingPage() {
         <CTA />
       </main>
       <Footer />
+      <AgentDemo />
     </div>
   );
 }

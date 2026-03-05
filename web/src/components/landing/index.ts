@@ -7,3 +7,4 @@ export { default as FAQ } from "./FAQ";
 export { default as Testimonials } from "./Testimonials";
 export { default as CTA } from "./CTA";
 export { default as Footer } from "./Footer";
+export { default as AgentDemo } from "./AgentDemo";
