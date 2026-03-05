@@ -59,7 +59,7 @@ cd api
 bin/rails generate agent CustomerSupport
 ```
 
-This scaffolds the agent class, a React chat page, and a test file. Edit the agent, refresh the page — your AI agent is live. See the [First Agent Guide](docs/first-agent.md) for the full walkthrough.
+This scaffolds the agent class, a React chat page, and a test file. Edit the agent, refresh the page — your AI agent is live. See **[Build Your First Agent in 5 Minutes](docs/build-your-first-agent.md)** for the full walkthrough.
 
 ### 6. Deploy
 
