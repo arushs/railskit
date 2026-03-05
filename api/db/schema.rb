@@ -14,6 +14,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_04_153137) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
+  create_table "chats", force: :cascade do |t|
+    t.string "agent_class", null: false
+    t.datetime "created_at", null: false
+    t.jsonb "metadata", default: {}
+    t.string "model_id"
+    t.datetime "updated_at", null: false
+    t.bigint "user_id"
+    t.index ["agent_class"], name: "index_chats_on_agent_class"
+    t.index ["user_id"], name: "index_chats_on_user_id"
+  end
+
   create_table "conversations", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.jsonb "metadata"
@@ -34,20 +45,63 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_04_153137) do
   end
 
   create_table "messages", force: :cascade do |t|
+    t.bigint "chat_id"
     t.text "content"
-    t.bigint "conversation_id", null: false
+    t.bigint "conversation_id"
     t.decimal "cost_cents"
     t.datetime "created_at", null: false
     t.string "finish_reason"
+    t.integer "input_tokens"
+    t.string "model_id"
     t.string "name"
-    t.string "role"
+    t.integer "output_tokens"
+    t.string "role", null: false
     t.integer "token_count"
     t.string "tool_call_id"
     t.jsonb "tool_calls"
+    t.jsonb "tool_result"
     t.datetime "updated_at", null: false
+    t.index ["chat_id", "created_at"], name: "index_messages_on_chat_id_and_created_at"
+    t.index ["chat_id"], name: "index_messages_on_chat_id"
     t.index ["conversation_id", "created_at"], name: "index_messages_on_conversation_id_and_created_at"
     t.index ["conversation_id"], name: "index_messages_on_conversation_id"
     t.index ["role"], name: "index_messages_on_role"
+  end
+
+  create_table "plans", force: :cascade do |t|
+    t.boolean "active", default: true, null: false
+    t.integer "amount_cents", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.string "currency", default: "usd", null: false
+    t.jsonb "features", default: {}, null: false
+    t.string "interval", default: "month", null: false
+    t.string "name", null: false
+    t.string "slug", null: false
+    t.integer "sort_order", default: 0, null: false
+    t.string "stripe_price_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["active"], name: "index_plans_on_active"
+    t.index ["slug"], name: "index_plans_on_slug", unique: true
+    t.index ["stripe_price_id"], name: "index_plans_on_stripe_price_id", unique: true
+  end
+
+  create_table "subscriptions", force: :cascade do |t|
+    t.datetime "cancel_at"
+    t.datetime "canceled_at"
+    t.datetime "created_at", null: false
+    t.datetime "current_period_end"
+    t.datetime "current_period_start"
+    t.bigint "plan_id", null: false
+    t.string "status", default: "incomplete", null: false
+    t.string "stripe_customer_id", null: false
+    t.string "stripe_subscription_id", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "user_id", null: false
+    t.index ["plan_id"], name: "index_subscriptions_on_plan_id"
+    t.index ["status"], name: "index_subscriptions_on_status"
+    t.index ["stripe_customer_id"], name: "index_subscriptions_on_stripe_customer_id"
+    t.index ["stripe_subscription_id"], name: "index_subscriptions_on_stripe_subscription_id", unique: true
+    t.index ["user_id"], name: "index_subscriptions_on_user_id"
   end
 
   create_table "users", force: :cascade do |t|
@@ -57,7 +111,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_04_153137) do
     t.string "current_sign_in_ip"
     t.string "email", default: "", null: false
     t.string "encrypted_password", default: "", null: false
-    t.string "jti", null: false
     t.datetime "last_sign_in_at"
     t.string "last_sign_in_ip"
     t.datetime "magic_link_sent_at"
@@ -72,12 +125,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_04_153137) do
     t.string "uid"
     t.datetime "updated_at", null: false
     t.index ["email"], name: "index_users_on_email", unique: true
-    t.index ["jti"], name: "index_users_on_jti", unique: true
     t.index ["magic_link_token"], name: "index_users_on_magic_link_token", unique: true
     t.index ["provider", "uid"], name: "index_users_on_provider_and_uid", unique: true
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
   end
 
+  add_foreign_key "chats", "users"
   add_foreign_key "conversations", "users"
+  add_foreign_key "messages", "chats"
   add_foreign_key "messages", "conversations"
+  add_foreign_key "subscriptions", "plans"
+  add_foreign_key "subscriptions", "users"
 end

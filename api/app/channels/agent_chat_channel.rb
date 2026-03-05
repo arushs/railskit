@@ -2,10 +2,10 @@
 
 class AgentChatChannel < ApplicationCable::Channel
   def subscribed
-    @conversation = Chat.find_by(id: params[:conversation_id])
+    @chat = current_user.chats.find_by(id: params[:chat_id])
 
-    if @conversation
-      stream_for @conversation
+    if @chat
+      stream_for @chat
     else
       reject
     end
@@ -21,26 +21,23 @@ class AgentChatChannel < ApplicationCable::Channel
     message = data["message"]
     return unless message.present?
 
-    conversation = Chat.find(params[:conversation_id])
     agent_name = data.fetch("agent_name", "help_desk")
 
     # Persist the user message immediately
-    conversation.persist_message(role: "user", content: message)
+    @chat.persist_message(role: "user", content: message)
 
     # Enqueue streaming in a background job to avoid blocking the channel
     AgentStreamJob.perform_later(
-      conversation_id: conversation.id,
+      conversation_id: @chat.id,
       agent_name: agent_name,
       message: message
     )
   rescue => e
     Rails.logger.error("[AgentChatChannel#speak] #{e.class}: #{e.message}")
-    if (conv = Chat.find_by(id: params[:conversation_id]))
-      AgentChatChannel.broadcast_to(conv, {
-        type: "stream_error",
-        error: "Something went wrong. Please try again.",
-        conversation_id: params[:conversation_id]
-      })
-    end
+    AgentChatChannel.broadcast_to(@chat, {
+      type: "stream_error",
+      error: "Something went wrong. Please try again.",
+      conversation_id: @chat.id
+    })
   end
 end
