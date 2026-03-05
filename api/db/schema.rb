@@ -10,14 +10,44 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_04_135222) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_04_153137) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
+
+  create_table "conversations", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.jsonb "metadata"
+    t.string "model"
+    t.string "provider"
+    t.text "system_prompt"
+    t.string "title"
+    t.datetime "updated_at", null: false
+    t.bigint "user_id", null: false
+    t.index ["user_id", "updated_at"], name: "index_conversations_on_user_id_and_updated_at"
+    t.index ["user_id"], name: "index_conversations_on_user_id"
+  end
 
   create_table "jwt_denylists", force: :cascade do |t|
     t.datetime "exp", null: false
     t.string "jti", null: false
     t.index ["jti"], name: "index_jwt_denylists_on_jti"
+  end
+
+  create_table "messages", force: :cascade do |t|
+    t.text "content"
+    t.bigint "conversation_id", null: false
+    t.decimal "cost_cents"
+    t.datetime "created_at", null: false
+    t.string "finish_reason"
+    t.string "name"
+    t.string "role"
+    t.integer "token_count"
+    t.string "tool_call_id"
+    t.jsonb "tool_calls"
+    t.datetime "updated_at", null: false
+    t.index ["conversation_id", "created_at"], name: "index_messages_on_conversation_id_and_created_at"
+    t.index ["conversation_id"], name: "index_messages_on_conversation_id"
+    t.index ["role"], name: "index_messages_on_role"
   end
 
   create_table "users", force: :cascade do |t|
@@ -27,6 +57,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_04_135222) do
     t.string "current_sign_in_ip"
     t.string "email", default: "", null: false
     t.string "encrypted_password", default: "", null: false
+    t.string "jti", null: false
     t.datetime "last_sign_in_at"
     t.string "last_sign_in_ip"
     t.datetime "magic_link_sent_at"
@@ -41,8 +72,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_04_135222) do
     t.string "uid"
     t.datetime "updated_at", null: false
     t.index ["email"], name: "index_users_on_email", unique: true
+    t.index ["jti"], name: "index_users_on_jti", unique: true
     t.index ["magic_link_token"], name: "index_users_on_magic_link_token", unique: true
     t.index ["provider", "uid"], name: "index_users_on_provider_and_uid", unique: true
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
   end
+
+  add_foreign_key "conversations", "users"
+  add_foreign_key "messages", "conversations"
 end

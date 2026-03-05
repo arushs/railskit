@@ -56,6 +56,55 @@ export interface AuthResponse {
   token: string;
 }
 
+// ── Conversations API ──
+
+export interface Conversation {
+  id: number;
+  title: string | null;
+  model: string;
+  provider: string;
+  system_prompt?: string | null;
+  metadata?: Record<string, unknown>;
+  messages?: Message[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Message {
+  id?: number;
+  role: "system" | "user" | "assistant" | "tool";
+  content: string | null;
+  tool_calls?: unknown[] | null;
+  tool_call_id?: string | null;
+  name?: string | null;
+  finish_reason?: string | null;
+  token_count?: number | null;
+  cost_cents?: number | null;
+  created_at?: string;
+}
+
+export const conversationsApi = {
+  list: (limit = 50, offset = 0) =>
+    api.get<{ conversations: Conversation[] }>(`/api/conversations?limit=${limit}&offset=${offset}`),
+
+  get: (id: number) =>
+    api.get<{ conversation: Conversation }>(`/api/conversations/${id}`),
+
+  create: (data: { title?: string; model?: string; provider?: string; system_prompt?: string }) =>
+    api.post<{ conversation: Conversation }>("/api/conversations", { conversation: data }),
+
+  update: (id: number, data: { title?: string; model?: string; system_prompt?: string }) =>
+    api.patch<{ conversation: Conversation }>(`/api/conversations/${id}`, { conversation: data }),
+
+  delete: (id: number) =>
+    api.delete<void>(`/api/conversations/${id}`),
+
+  messages: (id: number, limit = 100, offset = 0) =>
+    api.get<{ messages: Message[] }>(`/api/conversations/${id}/messages?limit=${limit}&offset=${offset}`),
+};
+
+// ── Auth API ──
+
 export const authApi = {
   signUp: (email: string, password: string, name?: string) =>
     api.post<AuthResponse>("/api/auth/signup", {
