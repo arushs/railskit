@@ -13,6 +13,8 @@ import { SignUpPage } from "./pages/auth/SignUpPage";
 import { MagicLinkPage } from "./pages/auth/MagicLinkPage";
 import { MagicLinkVerifyPage } from "./pages/auth/MagicLinkVerifyPage";
 import { OAuthCallbackPage } from "./pages/auth/OAuthCallbackPage";
+import { TwoFactorChallengePage } from "./pages/auth/TwoFactorChallengePage";
+import { AccountSecurityPage } from "./pages/dashboard/AccountSecurityPage";
 import DashboardPage from "./pages/DashboardPage";
 import SettingsPage from "./pages/SettingsPage";
 import BillingPage from "./pages/BillingPage";
@@ -41,6 +43,7 @@ createRoot(document.getElementById("root")!).render(
               <Route path="/auth/magic-link" element={<MagicLinkPage />} />
               <Route path="/auth/magic-link/verify" element={<MagicLinkVerifyPage />} />
               <Route path="/auth/callback" element={<OAuthCallbackPage />} />
+              <Route path="/auth/two-factor" element={<TwoFactorChallengePage />} />
 
               {/* Authenticated routes */}
               <Route element={<AuthGuard />}>
@@ -55,6 +58,7 @@ createRoot(document.getElementById("root")!).render(
                   <Route path="/dashboard/workflows" element={<WorkflowsPage />} />
                   <Route path="/dashboard/settings" element={<SettingsPage />} />
                   <Route path="/dashboard/billing" element={<BillingPage />} />
+                  <Route path="/dashboard/security" element={<AccountSecurityPage />} />
                 </Route>
               </Route>
               {/* Agent Dashboard */}

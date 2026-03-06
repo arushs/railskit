@@ -49,7 +49,29 @@ export interface User {
   avatar_url: string | null;
   plan: string;
   admin?: boolean;
+  two_factor_enabled: boolean;
+  confirmed: boolean;
   created_at: string;
+}
+
+export interface TwoFactorChallengeResponse {
+  requires_2fa: true;
+  temp_token: string;
+}
+
+export interface TwoFactorEnableResponse {
+  otp_uri: string;
+  message: string;
+}
+
+export interface TwoFactorVerifyResponse {
+  message: string;
+  backup_codes: string[];
+}
+
+export interface TwoFactorBackupCodesResponse {
+  backup_codes: string[];
+  message: string;
 }
 
 export interface AuthResponse {
@@ -130,4 +152,30 @@ export const authApi = {
     api.post<AuthResponse>("/api/auth/magic_link/verify", { token }),
 
   googleOAuthUrl: () => `${API_BASE}/api/auth/users/auth/google_oauth2`,
+
+  // Email confirmation
+  resendConfirmation: (email: string) =>
+    api.post<{ message: string }>("/api/auth/confirmation", { user: { email } }),
+
+  // Account unlock
+  requestUnlock: (email: string) =>
+    api.post<{ message: string }>("/api/auth/unlock", { user: { email } }),
+
+  // Two-Factor Authentication
+  twoFactor: {
+    enable: () =>
+      api.post<TwoFactorEnableResponse>("/api/auth/two_factor/enable"),
+
+    verify: (otpCode: string) =>
+      api.post<TwoFactorVerifyResponse>("/api/auth/two_factor/verify", { otp_code: otpCode }),
+
+    disable: (password: string) =>
+      api.post<{ message: string }>("/api/auth/two_factor/disable", { password }),
+
+    regenerateBackupCodes: (password: string) =>
+      api.post<TwoFactorBackupCodesResponse>("/api/auth/two_factor/backup_codes", { password }),
+
+    challenge: (tempToken: string, otpCode: string) =>
+      api.post<AuthResponse>("/api/auth/two_factor/challenge", { temp_token: tempToken, otp_code: otpCode }),
+  },
 };

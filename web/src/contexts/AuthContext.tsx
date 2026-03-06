@@ -1,11 +1,14 @@
 import { createContext, useCallback, useEffect, useState, type ReactNode } from "react";
-import { authApi, type User } from "../lib/api";
+import { authApi, type User, type TwoFactorChallengeResponse } from "../lib/api";
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  signUp: (email: string, password: string, name?: string) => Promise<{ ok: boolean; error?: string }>;
-  signIn: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
+  twoFactorPending: { tempToken: string } | null;
+  signUp: (email: string, password: string, name?: string) => Promise<{ ok: boolean; error?: string; confirmationRequired?: boolean }>;
+  signIn: (email: string, password: string) => Promise<{ ok: boolean; error?: string; requires2fa?: boolean }>;
+  completeTwoFactor: (otpCode: string) => Promise<{ ok: boolean; error?: string }>;
+  cancelTwoFactor: () => void;
   signOut: () => Promise<void>;
   requestMagicLink: (email: string) => Promise<{ ok: boolean }>;
   verifyMagicLink: (token: string) => Promise<{ ok: boolean; error?: string }>;
@@ -18,6 +21,7 @@ export const AuthContext = createContext<AuthContextType | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [twoFactorPending, setTwoFactorPending] = useState<{ tempToken: string } | null>(null);
 
   const refreshUser = useCallback(async () => {
     try {
@@ -39,6 +43,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signUp = async (email: string, password: string, name?: string) => {
     const res = await authApi.signUp(email, password, name);
     if (res.ok) {
+      const data = res.data as Record<string, unknown>;
+      if (data.confirmation_required) {
+        return { ok: true, confirmationRequired: true };
+      }
       setUser(res.data.user);
       return { ok: true };
     }
@@ -49,16 +57,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = async (email: string, password: string) => {
     const res = await authApi.signIn(email, password);
     if (res.ok) {
-      setUser(res.data.user);
+      const data = res.data as unknown as TwoFactorChallengeResponse | { user: User };
+      if ("requires_2fa" in data && data.requires_2fa) {
+        setTwoFactorPending({ tempToken: data.temp_token });
+        return { ok: true, requires2fa: true };
+      }
+      setUser((data as { user: User }).user);
       return { ok: true };
     }
     const errorData = res.data as unknown as { error?: string };
     return { ok: false, error: errorData.error || "Invalid credentials" };
   };
 
+  const completeTwoFactor = async (otpCode: string) => {
+    if (!twoFactorPending) {
+      return { ok: false, error: "No 2FA challenge pending" };
+    }
+    const res = await authApi.twoFactor.challenge(twoFactorPending.tempToken, otpCode);
+    if (res.ok) {
+      setUser(res.data.user);
+      setTwoFactorPending(null);
+      return { ok: true };
+    }
+    const errorData = res.data as unknown as { error?: string };
+    return { ok: false, error: errorData.error || "Invalid code" };
+  };
+
+  const cancelTwoFactor = () => {
+    setTwoFactorPending(null);
+  };
+
   const signOut = async () => {
     await authApi.signOut();
     setUser(null);
+    setTwoFactorPending(null);
   };
 
   const requestMagicLink = async (email: string) => {
@@ -87,7 +119,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, loading, signUp, signIn, signOut, requestMagicLink, verifyMagicLink, updateProfile, refreshUser }}
+      value={{
+        user,
+        loading,
+        twoFactorPending,
+        signUp,
+        signIn,
+        completeTwoFactor,
+        cancelTwoFactor,
+        signOut,
+        requestMagicLink,
+        verifyMagicLink,
+        updateProfile,
+        refreshUser,
+      }}
     >
       {children}
     </AuthContext.Provider>

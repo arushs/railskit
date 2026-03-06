@@ -13,6 +13,8 @@ Rails.application.routes.draw do
     controllers: {
       sessions: "api/auth/sessions",
       registrations: "api/auth/registrations",
+      confirmations: "api/auth/confirmations",
+      unlocks: "api/auth/unlocks",
       omniauth_callbacks: "api/auth/omniauth_callbacks"
     },
     defaults: { format: :json }
@@ -20,11 +22,18 @@ Rails.application.routes.draw do
   namespace :api do
     get "health", to: "health#show"
 
-    # Auth extras (current user, magic links)
+    # Auth extras (current user, magic links, 2FA)
     namespace :auth do
       get "me", to: "me#show"
       post "magic_link", to: "magic_links#create"
       post "magic_link/verify", to: "magic_links#verify"
+
+      # Two-Factor Authentication
+      post "two_factor/enable", to: "two_factor#enable"
+      post "two_factor/verify", to: "two_factor#verify"
+      post "two_factor/disable", to: "two_factor#disable"
+      post "two_factor/backup_codes", to: "two_factor#backup_codes"
+      post "two_factor/challenge", to: "two_factor#challenge"
     end
 
     # Payments

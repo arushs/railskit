@@ -33,6 +33,8 @@ module JwtCookie
       name: user.name,
       avatar_url: user.avatar_url,
       plan: user.plan,
+      two_factor_enabled: user.two_factor_enabled?,
+      confirmed: user.confirmed?,
       created_at: user.created_at
     }
   end
