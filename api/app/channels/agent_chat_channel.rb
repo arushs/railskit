@@ -1,11 +1,19 @@
 # frozen_string_literal: true
 
 class AgentChatChannel < ApplicationCable::Channel
+  # Orchestration event types for multi-agent workflows
+  ORCHESTRATION_EVENTS = %w[handoff delegation context_update workflow_status].freeze
+
   def subscribed
     @chat = current_user.chats.find_by(id: params[:chat_id])
 
     if @chat
       stream_for @chat
+
+      # If a workflow_run_id is provided, also stream orchestration events
+      if params[:workflow_run_id].present?
+        stream_from "workflow_#{params[:workflow_run_id]}"
+      end
     else
       reject
     end
@@ -13,6 +21,14 @@ class AgentChatChannel < ApplicationCable::Channel
 
   def unsubscribed
     stop_all_streams
+  end
+
+  # Subscribe to a workflow run's orchestration events mid-conversation
+  def follow_workflow(data)
+    workflow_run_id = data["workflow_run_id"]
+    return unless workflow_run_id.present?
+
+    stream_from "workflow_#{workflow_run_id}"
   end
 
   # Client sends a message via ActionCable directly (alternative to HTTP stream endpoint).

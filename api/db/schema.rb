@@ -10,9 +10,37 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_04_153137) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_05_200003) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
+
+  create_table "agent_invocations", force: :cascade do |t|
+    t.string "agent_name", null: false
+    t.datetime "completed_at"
+    t.datetime "created_at", null: false
+    t.jsonb "input", default: {}
+    t.jsonb "output", default: {}
+    t.bigint "parent_invocation_id"
+    t.string "role", default: "specialist", null: false
+    t.datetime "started_at"
+    t.string "status", default: "pending", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "workflow_run_id", null: false
+    t.index ["agent_name"], name: "index_agent_invocations_on_agent_name"
+    t.index ["parent_invocation_id"], name: "index_agent_invocations_on_parent_invocation_id"
+    t.index ["status"], name: "index_agent_invocations_on_status"
+    t.index ["workflow_run_id"], name: "index_agent_invocations_on_workflow_run_id"
+  end
+
+  create_table "agent_workflows", force: :cascade do |t|
+    t.jsonb "config", default: {}
+    t.string "coordinator_agent", null: false
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.string "name", null: false
+    t.datetime "updated_at", null: false
+    t.index ["name"], name: "index_agent_workflows_on_name", unique: true
+  end
 
   create_table "chats", force: :cascade do |t|
     t.string "agent_class", null: false
@@ -69,6 +97,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_04_153137) do
     t.index ["stripe_price_id"], name: "index_plans_on_stripe_price_id", unique: true
   end
 
+  create_table "shared_contexts", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "key", null: false
+    t.datetime "updated_at", null: false
+    t.jsonb "value", default: {}
+    t.bigint "workflow_run_id", null: false
+    t.string "written_by"
+    t.index ["workflow_run_id", "key"], name: "index_shared_contexts_on_workflow_run_id_and_key", unique: true
+    t.index ["workflow_run_id"], name: "index_shared_contexts_on_workflow_run_id"
+  end
+
   create_table "subscriptions", force: :cascade do |t|
     t.datetime "cancel_at"
     t.datetime "canceled_at"
@@ -114,8 +153,26 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_04_153137) do
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
   end
 
+  create_table "workflow_runs", force: :cascade do |t|
+    t.bigint "agent_workflow_id", null: false
+    t.datetime "completed_at"
+    t.jsonb "context", default: {}
+    t.datetime "created_at", null: false
+    t.jsonb "input", default: {}
+    t.jsonb "output", default: {}
+    t.datetime "started_at"
+    t.string "status", default: "pending", null: false
+    t.datetime "updated_at", null: false
+    t.index ["agent_workflow_id"], name: "index_workflow_runs_on_agent_workflow_id"
+    t.index ["status"], name: "index_workflow_runs_on_status"
+  end
+
+  add_foreign_key "agent_invocations", "agent_invocations", column: "parent_invocation_id"
+  add_foreign_key "agent_invocations", "workflow_runs"
   add_foreign_key "chats", "users"
   add_foreign_key "messages", "chats"
+  add_foreign_key "shared_contexts", "workflow_runs"
   add_foreign_key "subscriptions", "plans"
   add_foreign_key "subscriptions", "users"
+  add_foreign_key "workflow_runs", "agent_workflows"
 end

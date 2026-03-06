@@ -42,5 +42,15 @@ Rails.application.routes.draw do
     # Agents (RubyLLM-powered)
     post "agents/:agent_name/chat", to: "agents#chat"
     post "agents/:agent_name/stream", to: "agents#stream_chat"
+
+    # Multi-agent orchestration
+    resources :workflows, only: [:index, :show, :create, :update, :destroy] do
+      resources :runs, controller: "workflow_runs", only: [:index, :create]
+    end
+    resources :workflow_runs, only: [:show] do
+      member do
+        get :invocations
+      end
+    end
   end
 end
