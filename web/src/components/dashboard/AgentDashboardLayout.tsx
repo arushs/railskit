@@ -1,15 +1,14 @@
 import { Link, useLocation } from "react-router";
 import { cn } from "@/lib/utils";
-import { MessageSquare, DollarSign, Wrench, LayoutDashboard, ArrowLeft, GitBranch, Mic, BookOpen } from "lucide-react";
+import { MessageSquare, DollarSign, Wrench, LayoutDashboard, ArrowLeft, GitBranch, Mic } from "lucide-react";
 
 const navItems = [
   { to: "/agents", label: "Overview", icon: LayoutDashboard, end: true },
   { to: "/agents/chats", label: "Chats", icon: MessageSquare },
-  { to: "/agents/voice", label: "Voice", icon: Mic },
-  { to: "/agents/knowledge", label: "Knowledge", icon: BookOpen },
   { to: "/agents/workflows", label: "Workflows", icon: GitBranch },
   { to: "/agents/costs", label: "Costs", icon: DollarSign },
   { to: "/agents/tools", label: "Tools", icon: Wrench },
+  { to: "/agents/voice", label: "Voice", icon: Mic },
 ];
 
 export default function AgentDashboardLayout({ children }: { children: React.ReactNode }) {
