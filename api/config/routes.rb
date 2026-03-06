@@ -39,6 +39,20 @@ Rails.application.routes.draw do
 
 
 
+    # RAG: Collections & Documents
+    resources :collections, only: %i[index show create update destroy] do
+      post :search, on: :member
+      resources :documents, only: %i[index show create destroy] do
+        post :reprocess, on: :member
+      end
+    end
+
+    # Global document search (across all collections)
+    post "search", to: "search#create"
+
+    # Voice sessions
+    resources :voice_sessions, only: %i[index show create destroy]
+
     # Agents (RubyLLM-powered)
     post "agents/route", to: "agents#route"
     post "agents/:agent_name/chat", to: "agents#chat"
