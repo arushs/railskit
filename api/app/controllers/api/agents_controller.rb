@@ -43,7 +43,36 @@ module Api
       render json: { error: "Something went wrong." }, status: :internal_server_error
     end
 
+    # Auto-routed chat — AgentRouter picks the best agent for the message.
+    # POST /api/agents/route
+    def route
+      conversation = find_or_create_routed_conversation
+      agent_class = AgentRouter.route(params[:message]) || AgentRouter.registry.first&.agent_class
+      raise "No agents registered in AgentRouter" unless agent_class
+
+      agent = agent_class.new(conversation: conversation)
+      response = agent.ask(params[:message])
+
+      render json: {
+        response: response.content,
+        routed_to: agent_class.name,
+        conversation_id: conversation.id,
+        model: response.respond_to?(:model_id) ? response.model_id : nil
+      }
+    rescue => e
+      Rails.logger.error("[AgentsController#route] #{e.class}: #{e.message}")
+      render json: { error: "Routing failed." }, status: :internal_server_error
+    end
+
     private
+
+    def find_or_create_routed_conversation
+      if params[:conversation_id].present?
+        Chat.find(params[:conversation_id])
+      else
+        Chat.create!(agent_class: "RoutedAgent")
+      end
+    end
 
     def find_or_create_chat
       params[:chat_id].present? ? Chat.find(params[:chat_id]) : Chat.create!(agent_class: agent_class_name)

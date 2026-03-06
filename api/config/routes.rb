@@ -40,6 +40,7 @@ Rails.application.routes.draw do
 
 
     # Agents (RubyLLM-powered)
+    post "agents/route", to: "agents#route"
     post "agents/:agent_name/chat", to: "agents#chat"
     post "agents/:agent_name/stream", to: "agents#stream_chat"
   end
