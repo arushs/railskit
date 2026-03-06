@@ -50,6 +50,9 @@ gem "stripe", "~> 13.0"
 # AI / LLM
 gem "ruby_llm", "~> 1.0"
 
+# Voice: WebSocket client for Deepgram STT
+gem "websocket-client-simple", "~> 0.8"
+
 # JWT for ActionCable auth
 gem "jwt", "~> 2.9"
 
@@ -79,4 +82,5 @@ group :development, :test do
   gem "factory_bot_rails", "~> 6.4"
   gem "shoulda-matchers", "~> 6.0"
   gem "faker", "~> 3.4"
+  gem "webmock", "~> 3.23"
 end

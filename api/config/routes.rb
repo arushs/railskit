@@ -39,6 +39,9 @@ Rails.application.routes.draw do
 
 
 
+    # Voice presets
+    resources :voice_presets, only: [:index, :show, :create, :update, :destroy]
+
     # Agents (RubyLLM-powered)
     post "agents/:agent_name/chat", to: "agents#chat"
     post "agents/:agent_name/stream", to: "agents#stream_chat"
