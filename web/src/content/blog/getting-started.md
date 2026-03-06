@@ -1,3 +1,16 @@
+---
+title: Getting Started with RailsKit
+description: A quick guide to setting up RailsKit and shipping your first AI-powered Rails app.
+date: "2026-03-04"
+author: RailsKit Team
+category: guides
+tags:
+  - guide
+  - quickstart
+  - setup
+image: /images/blog/getting-started.jpg
+---
+
 # Getting Started with RailsKit
 
 Welcome to RailsKit — the fastest way to ship AI-powered Rails applications.
@@ -19,28 +32,38 @@ bin/dev
 
 That's it. You now have:
 
-- **Rails API** running on `localhost:3000`
-- **React frontend** on `localhost:5173`
-- **Authentication** (Devise + JWT + OAuth)
-- **Billing** (Stripe subscriptions)
-- **AI Agents** (RubyLLM + ActionCable streaming)
+- A Rails 8 API backend with authentication, billing, and real-time WebSockets
+- A React 19 frontend with TailwindCSS, dark mode, and SEO
+- AI agent infrastructure with tool use and streaming
+- Deployment configs for Fly.io, Render, and Docker
 
-## Your First Agent
+## Project Structure
 
-```bash
-rails generate agent helpdesk --tools search,knowledge_base
+```
+railskit/
+├── api/           # Rails 8 API backend
+├── web/           # React 19 frontend
+├── railskit.yml   # Unified configuration
+└── bin/           # Setup & dev scripts
 ```
 
-This creates:
+## What's Included
 
-- `app/agents/helpdesk_agent.rb` — agent logic
-- `app/tools/search_tool.rb` — search tool
-- `app/tools/knowledge_base_tool.rb` — KB tool
+### Authentication
+Email/password, OAuth (Google, GitHub), magic links, and JWT sessions — all pre-wired with Devise.
 
-Wire it to a chat and you've got a working AI helpdesk in under 5 minutes.
+### Billing
+Stripe integration with plans, subscriptions, and a customer portal. Swap in LemonSqueezy with one config change.
+
+### AI Agents
+RubyLLM-powered agents with tool use, streaming responses, and multi-agent orchestration.
+
+### Deployment
+One-command deploys to Fly.io or Render. Docker and Kamal configs included.
 
 ## Next Steps
 
-- [Configuration Guide](/blog/configuration) — customize `railskit.yml`
-- [Deployment](/blog/deployment) — deploy to Render or Fly.io
-- [Building Agents](/blog/agents) — deep dive into the agent system
+1. Customize `railskit.yml` with your app name, API keys, and preferences
+2. Run `bin/dev` to start the development server
+3. Visit `http://localhost:5173` to see your app
+4. Read the [architecture guide](/blog/why-rails-for-ai) for a deeper understanding

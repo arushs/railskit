@@ -1,9 +1,4 @@
-# RailsKit - robots.txt
 User-agent: *
 Allow: /
-Disallow: /dashboard
-Disallow: /agents
-Disallow: /auth/
-Disallow: /api/
 
 Sitemap: https://railskit.dev/sitemap.xml
