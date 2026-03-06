@@ -8,6 +8,8 @@ class User < ApplicationRecord
          omniauth_providers: [:google_oauth2]
 
   has_many :chats, dependent: :destroy
+  has_many :collections, dependent: :destroy
+  has_many :voice_sessions, dependent: :destroy
 
   validates :plan, inclusion: { in: %w[free starter pro enterprise] }
 
