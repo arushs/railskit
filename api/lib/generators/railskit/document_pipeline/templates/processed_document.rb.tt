@@ -1,0 +1,27 @@
+# frozen_string_literal: true
+
+class ProcessedDocument < ApplicationRecord
+  validates :original_filename, presence: true
+
+  scope :classified_as, ->(category) { where(classification: category) }
+  scope :processed, -> { where.not(processed_at: nil) }
+  scope :unprocessed, -> { where(processed_at: nil) }
+
+  def process!(config: DOCUMENT_PIPELINE_CONFIG)
+    pipeline = DocumentPipeline.new(config)
+    result = pipeline.process(raw_text: raw_text)
+
+    update!(
+      classification: result.dig(:classification, :classification),
+      confidence: result.dig(:classification, :confidence),
+      extracted_data: result.dig(:extracted, :fields) || {},
+      processed_at: Time.current
+    )
+
+    result
+  end
+
+  def processed?
+    processed_at.present?
+  end
+end
