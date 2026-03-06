@@ -1,10 +1,11 @@
 import { Link, useLocation } from "react-router";
 import { cn } from "@/lib/utils";
-import { MessageSquare, DollarSign, Wrench, LayoutDashboard, ArrowLeft } from "lucide-react";
+import { MessageSquare, DollarSign, Wrench, LayoutDashboard, ArrowLeft, GitBranch } from "lucide-react";
 
 const navItems = [
   { to: "/agents", label: "Overview", icon: LayoutDashboard, end: true },
   { to: "/agents/chats", label: "Chats", icon: MessageSquare },
+  { to: "/agents/workflows", label: "Workflows", icon: GitBranch },
   { to: "/agents/costs", label: "Costs", icon: DollarSign },
   { to: "/agents/tools", label: "Tools", icon: Wrench },
 ];

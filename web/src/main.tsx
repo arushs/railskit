@@ -21,6 +21,7 @@ import ChatList from "./pages/dashboard/ChatList";
 import ChatView from "./pages/dashboard/ChatView";
 import CostTracking from "./pages/dashboard/CostTracking";
 import ToolUsage from "./pages/dashboard/ToolUsage";
+import WorkflowsPage from "./pages/dashboard/WorkflowsPage";
 import BlogIndexPage from "./pages/BlogIndexPage";
 import BlogPostPage from "./pages/BlogPostPage";
 import "./index.css";
@@ -51,6 +52,7 @@ createRoot(document.getElementById("root")!).render(
               <Route path="/agents" element={<AgentDashboardLayout><DashboardOverview /></AgentDashboardLayout>} />
               <Route path="/agents/chats" element={<AgentDashboardLayout><ChatList /></AgentDashboardLayout>} />
               <Route path="/agents/chats/:id" element={<AgentDashboardLayout><ChatView /></AgentDashboardLayout>} />
+              <Route path="/agents/workflows" element={<AgentDashboardLayout><WorkflowsPage /></AgentDashboardLayout>} />
               <Route path="/agents/costs" element={<AgentDashboardLayout><CostTracking /></AgentDashboardLayout>} />
               <Route path="/agents/tools" element={<AgentDashboardLayout><ToolUsage /></AgentDashboardLayout>} />
 
