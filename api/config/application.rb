@@ -41,6 +41,9 @@ module Api
     # Skip views, helpers and assets when generating a new resource.
     config.api_only = true
 
+    # Use SQL format for schema dump (required for pgvector column types)
+    config.active_record.schema_format = :sql
+
     # Add session/cookie middleware for Devise + JWT httpOnly cookies + OmniAuth
     config.middleware.use ActionDispatch::Cookies
     config.middleware.use ActionDispatch::Session::CookieStore, key: "_railskit_session"

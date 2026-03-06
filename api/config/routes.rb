@@ -42,5 +42,17 @@ Rails.application.routes.draw do
     # Agents (RubyLLM-powered)
     post "agents/:agent_name/chat", to: "agents#chat"
     post "agents/:agent_name/stream", to: "agents#stream_chat"
+
+    # RAG Pipeline (v2)
+    namespace :v1 do
+      resources :document_collections, only: [:index, :show, :create, :update, :destroy] do
+        resources :documents, only: [:index, :show, :create, :destroy] do
+          member do
+            post :reprocess
+          end
+        end
+      end
+      post "search", to: "search#search"
+    end
   end
 end
