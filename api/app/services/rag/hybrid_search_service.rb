@@ -53,7 +53,7 @@ module Rag
       # @param threshold [Float] minimum RRF score to include (0 = include all)
       # @param expand [Symbol, nil] query expansion strategy (:lexical, :vector, :hyde, :multi, nil)
       # @param rerank [Boolean] whether to apply chunked reranking after RRF
-      # @param rerank_options [Hash] options passed to RerankerService (chunk_size, position_decay, etc.)
+      # @param rerank_options [Hash] options passed to Reranker (chunk_size, alpha, position_decay, etc.)
       # @return [Array<Result>]
       def search(query, collection: nil, collection_ids: nil, limit: 5, candidates: 20,
                  mode: :hybrid, k: DEFAULT_K, threshold: 0.0,
