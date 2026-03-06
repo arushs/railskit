@@ -8,6 +8,7 @@ import { MagicLinkVerifyPage } from "./pages/auth/MagicLinkVerifyPage";
 import { OAuthCallbackPage } from "./pages/auth/OAuthCallbackPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import LandingPage from "./pages/LandingPage";
+import RagPage from "./pages/dashboard/RagPage";
 
 function App() {
   return (
@@ -28,6 +29,16 @@ function App() {
             element={
               <ProtectedRoute>
                 <DashboardPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* RAG Pipeline */}
+          <Route
+            path="/agents/rag"
+            element={
+              <ProtectedRoute>
+                <RagPage />
               </ProtectedRoute>
             }
           />
