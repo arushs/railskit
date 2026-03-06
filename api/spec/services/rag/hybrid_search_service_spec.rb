@@ -192,6 +192,49 @@ RSpec.describe Rag::HybridSearchService do
     end
   end
 
+  describe "query expansion integration" do
+    let!(:chunk1) { create(:chunk, document: document, position: 0, content: "Reset your password easily", embedding: embedding_768) }
+
+    it "raises on unknown expand strategy" do
+      expect { described_class.search("test", expand: :invalid) }.to raise_error(ArgumentError, /Unknown expand strategy/)
+    end
+
+    it "accepts :hyde expansion" do
+      mock_chat = instance_double("RubyLLM::Chat")
+      mock_response = instance_double("RubyLLM::Response", content: "To reset your password go to settings")
+      allow(RubyLLM).to receive(:chat).and_return(mock_chat)
+      allow(mock_chat).to receive(:ask).and_return(mock_response)
+
+      results = described_class.search("password", expand: :hyde, mode: :vector, limit: 5)
+      expect(results).to be_an(Array)
+    end
+
+    it "accepts :multi expansion" do
+      mock_chat = instance_double("RubyLLM::Chat")
+      mock_response = instance_double("RubyLLM::Response", content: "expanded terms")
+      allow(RubyLLM).to receive(:chat).and_return(mock_chat)
+      allow(mock_chat).to receive(:ask).and_return(mock_response)
+
+      results = described_class.search("password", expand: :multi, mode: :vector, limit: 5)
+      expect(results).to be_an(Array)
+    end
+  end
+
+  describe "reranking integration" do
+    let!(:chunk1) { create(:chunk, document: document, position: 0, content: "Password reset guide", embedding: embedding_768) }
+    let!(:chunk2) { create(:chunk, document: document, position: 1, content: "Billing information", embedding: Array.new(768) { rand(-1.0..1.0) }) }
+
+    it "applies reranking when rerank: true" do
+      results = described_class.search("password", rerank: true, mode: :vector, limit: 5)
+      expect(results).to be_an(Array)
+      # Reranked results should still be valid Result structs
+      results.each do |r|
+        expect(r.chunk).to be_a(Chunk)
+        expect(r.score).to be_a(Float)
+      end
+    end
+  end
+
   describe "sanitize_tsquery" do
     it "joins words with &" do
       # Access private method for unit testing
