@@ -1,77 +1,144 @@
-import { useEffect, useRef, useState } from "react";
-import type { VoiceStatus } from "@/types/voice";
+import { useRef, useEffect, useCallback, useState } from "react";
 import { cn } from "@/lib/utils";
+import type { VoiceStatus } from "@/types/voice";
 
 interface WaveformVisualizerProps {
   status: VoiceStatus;
+  /** Number of bars to render */
+  bars?: number;
   className?: string;
-  barCount?: number;
+  /** Bar color — defaults to current text color */
+  color?: string;
+  /** Height in px */
+  height?: number;
 }
 
-export function WaveformVisualizer({
+/**
+ * Animated waveform visualizer that responds to voice status.
+ * - idle: flat line
+ * - listening: gentle pulse (user mic input)
+ * - processing: ripple animation
+ * - speaking: active waveform
+ * - error: red pulse
+ */
+export default function WaveformVisualizer({
   status,
+  bars = 40,
   className,
-  barCount = 32,
+  color,
+  height = 64,
 }: WaveformVisualizerProps) {
-  const [levels, setLevels] = useState<number[]>(() =>
-    Array.from({ length: barCount }, () => 0.05)
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const animationRef = useRef<number>(0);
+  const [dimensions, setDimensions] = useState({ width: 300, height });
+
+  // Observe container width
+  const containerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      const { width } = entries[0].contentRect;
+      setDimensions({ width, height });
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [height]);
+
+  const draw = useCallback(
+    (time: number) => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      const { width: w, height: h } = dimensions;
+      canvas.width = w * 2; // retina
+      canvas.height = h * 2;
+      ctx.scale(2, 2);
+      ctx.clearRect(0, 0, w, h);
+
+      const barWidth = Math.max(2, (w / bars) * 0.6);
+      const gap = (w - barWidth * bars) / (bars - 1);
+      const centerY = h / 2;
+
+      // Determine fill color
+      const computedColor =
+        color ??
+        (status === "error"
+          ? "#ef4444"
+          : status === "speaking"
+          ? "#6366f1"
+          : status === "listening"
+          ? "#22c55e"
+          : "#71717a");
+
+      ctx.fillStyle = computedColor;
+
+      for (let i = 0; i < bars; i++) {
+        let amplitude = 0;
+        const t = time / 1000;
+        const x = i * (barWidth + gap);
+
+        switch (status) {
+          case "idle":
+            amplitude = 2 + Math.sin(t * 0.5 + i * 0.2) * 1;
+            break;
+          case "connecting":
+            amplitude = 4 + Math.sin(t * 2 + i * 0.3) * 3;
+            break;
+          case "listening": {
+            const wave = Math.sin(t * 3 + i * 0.15) * 0.6;
+            const pulse = Math.sin(t * 1.5) * 0.3;
+            amplitude = 4 + (wave + pulse) * (h * 0.25);
+            break;
+          }
+          case "processing": {
+            const ripple = Math.sin(t * 4 - i * 0.4) * 0.5 + 0.5;
+            amplitude = 3 + ripple * (h * 0.15);
+            break;
+          }
+          case "speaking": {
+            // Multi-frequency waveform for natural speech look
+            const f1 = Math.sin(t * 5.5 + i * 0.25) * 0.4;
+            const f2 = Math.sin(t * 3.2 + i * 0.18) * 0.3;
+            const f3 = Math.sin(t * 8.1 + i * 0.35) * 0.2;
+            const env = 0.5 + Math.sin(t * 0.8 + i * 0.05) * 0.3;
+            amplitude = 4 + (f1 + f2 + f3) * env * (h * 0.35);
+            break;
+          }
+          case "error":
+            amplitude = 3 + Math.sin(t * 6) * Math.sin(i * 0.5) * (h * 0.2);
+            break;
+        }
+
+        const barHeight = Math.max(2, Math.abs(amplitude));
+        const radius = Math.min(barWidth / 2, barHeight / 2);
+        
+        // Draw rounded rect centered vertically
+        const y = centerY - barHeight / 2;
+        ctx.beginPath();
+        ctx.roundRect(x, y, barWidth, barHeight, radius);
+        ctx.fill();
+      }
+
+      animationRef.current = requestAnimationFrame(draw);
+    },
+    [bars, color, dimensions, height, status]
   );
-  const animRef = useRef<number>(0);
 
   useEffect(() => {
-    if (status !== "listening" && status !== "speaking") {
-      setLevels(Array.from({ length: barCount }, () => 0.05));
-      return;
-    }
-
-    const animate = () => {
-      setLevels((prev) =>
-        prev.map((_, i) => {
-          const center = barCount / 2;
-          const dist = Math.abs(i - center) / center;
-          const base = status === "speaking" ? 0.4 : 0.2;
-          const amplitude = status === "speaking" ? 0.6 : 0.4;
-          const wave = Math.sin(Date.now() / 200 + i * 0.5) * 0.5 + 0.5;
-          const noise = Math.random() * 0.3;
-          return Math.min(1, base + (wave + noise) * amplitude * (1 - dist * 0.6));
-        })
-      );
-      animRef.current = requestAnimationFrame(animate);
-    };
-
-    animRef.current = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(animRef.current);
-  }, [status, barCount]);
-
-  const barColor =
-    status === "speaking"
-      ? "bg-indigo-500 dark:bg-indigo-400"
-      : status === "listening"
-        ? "bg-emerald-500 dark:bg-emerald-400"
-        : "bg-zinc-300 dark:bg-zinc-700";
+    animationRef.current = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(animationRef.current);
+  }, [draw]);
 
   return (
-    <div
-      className={cn(
-        "flex items-center justify-center gap-[2px] h-16",
-        className
-      )}
-      role="img"
-      aria-label={`Voice waveform — ${status}`}
-    >
-      {levels.map((level, i) => (
-        <div
-          key={i}
-          className={cn(
-            "w-1 rounded-full transition-colors duration-200",
-            barColor
-          )}
-          style={{
-            height: `${Math.max(4, level * 100)}%`,
-            transition: "height 80ms ease-out",
-          }}
-        />
-      ))}
+    <div ref={containerRef} className={cn("w-full", className)} style={{ height }}>
+      <canvas
+        ref={canvasRef}
+        className="w-full h-full"
+        style={{ width: dimensions.width, height: dimensions.height }}
+      />
     </div>
   );
 }

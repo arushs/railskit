@@ -1,32 +1,56 @@
 import { useState, useRef, useEffect } from "react";
-import type { VoiceStatus, VoiceMessage, VoicePreset } from "@/types/voice";
-import { WaveformVisualizer } from "./WaveformVisualizer";
-import { VoicePresetPicker } from "./VoicePresetPicker";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import {
-  Mic,
-  MicOff,
-  Phone,
-  PhoneOff,
-  Settings2,
-  Clock,
-  ChevronUp,
-} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Mic, MicOff, Phone, PhoneOff, Settings, Clock } from "lucide-react";
+import WaveformVisualizer from "./WaveformVisualizer";
+import type { VoiceMessage, VoiceStatus, VoicePreset } from "@/types/voice";
 
 interface VoiceChatProps {
-  presets: VoicePreset[];
-  initialPreset: VoicePreset;
-  initialMessages?: VoiceMessage[];
+  messages: VoiceMessage[];
+  status: VoiceStatus;
+  activePreset: VoicePreset | null;
+  onStartSession: () => void;
+  onEndSession: () => void;
+  onToggleMute: () => void;
+  isMuted: boolean;
+  onOpenSettings?: () => void;
   className?: string;
 }
 
-function formatDuration(ms: number): string {
-  const s = Math.floor(ms / 1000);
-  const m = Math.floor(s / 60);
-  const sec = s % 60;
-  return `${m}:${sec.toString().padStart(2, "0")}`;
+const statusConfig: Record<
+  VoiceStatus,
+  { label: string; color: string; dotColor: string }
+> = {
+  idle: { label: "Ready", color: "text-zinc-400", dotColor: "bg-zinc-400" },
+  connecting: {
+    label: "Connecting…",
+    color: "text-amber-400",
+    dotColor: "bg-amber-400 animate-pulse",
+  },
+  listening: {
+    label: "Listening",
+    color: "text-emerald-400",
+    dotColor: "bg-emerald-400 animate-pulse",
+  },
+  processing: {
+    label: "Thinking…",
+    color: "text-blue-400",
+    dotColor: "bg-blue-400 animate-pulse",
+  },
+  speaking: {
+    label: "Speaking",
+    color: "text-indigo-400",
+    dotColor: "bg-indigo-400 animate-pulse",
+  },
+  error: { label: "Error", color: "text-red-400", dotColor: "bg-red-400" },
+};
+
+function formatDuration(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
 function formatTime(iso: string): string {
@@ -36,29 +60,19 @@ function formatTime(iso: string): string {
   });
 }
 
-const statusConfig: Record<VoiceStatus, { label: string; color: string }> = {
-  idle: { label: "Ready", color: "bg-zinc-400" },
-  connecting: { label: "Connecting…", color: "bg-amber-400 animate-pulse" },
-  listening: { label: "Listening", color: "bg-emerald-400 animate-pulse" },
-  speaking: { label: "Speaking", color: "bg-indigo-400 animate-pulse" },
-  processing: { label: "Thinking…", color: "bg-amber-400 animate-pulse" },
-  error: { label: "Error", color: "bg-red-400" },
-};
-
-export function VoiceChat({
-  presets,
-  initialPreset,
-  initialMessages = [],
+export default function VoiceChat({
+  messages,
+  status,
+  activePreset,
+  onStartSession,
+  onEndSession,
+  onToggleMute,
+  isMuted,
+  onOpenSettings,
   className,
 }: VoiceChatProps) {
-  const [status, setStatus] = useState<VoiceStatus>("idle");
-  const [messages, setMessages] = useState<VoiceMessage[]>(initialMessages);
-  const [selectedPreset, setSelectedPreset] = useState<VoicePreset>(initialPreset);
-  const [showSettings, setShowSettings] = useState(false);
-  const [elapsed, setElapsed] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const timerRef = useRef<ReturnType<typeof setInterval>>(null);
-
+  const [elapsed, setElapsed] = useState(0);
   const isActive = status !== "idle" && status !== "error";
 
   // Auto-scroll on new messages
@@ -67,216 +81,185 @@ export function VoiceChat({
       top: scrollRef.current.scrollHeight,
       behavior: "smooth",
     });
-  }, [messages]);
+  }, [messages.length]);
 
-  // Timer for active sessions
+  // Elapsed timer
   useEffect(() => {
-    if (isActive) {
-      timerRef.current = setInterval(() => setElapsed((e) => e + 1000), 1000);
-    } else {
-      if (timerRef.current) clearInterval(timerRef.current);
+    if (!isActive) {
+      setElapsed(0);
+      return;
     }
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
+    const interval = setInterval(() => setElapsed((e) => e + 1), 1000);
+    return () => clearInterval(interval);
   }, [isActive]);
 
-  const handleToggleCall = () => {
-    if (isActive) {
-      setStatus("idle");
-      setElapsed(0);
-    } else {
-      setStatus("connecting");
-      // Simulate connection + listening cycle
-      setTimeout(() => setStatus("listening"), 1200);
-      setTimeout(() => {
-        setStatus("processing");
-        setTimeout(() => {
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: `msg-${Date.now()}`,
-              role: "user",
-              content: "Hello, can you hear me?",
-              duration_ms: 1800,
-              timestamp: new Date().toISOString(),
-            },
-          ]);
-          setStatus("speaking");
-          setTimeout(() => {
-            setMessages((prev) => [
-              ...prev,
-              {
-                id: `msg-${Date.now() + 1}`,
-                role: "assistant",
-                content: "Yes, I can hear you perfectly! How can I help you today?",
-                duration_ms: 3200,
-                timestamp: new Date().toISOString(),
-              },
-            ]);
-            setStatus("listening");
-          }, 3000);
-        }, 1500);
-      }, 4000);
-    }
-  };
-
-  const handleMuteToggle = () => {
-    if (status === "listening") {
-      setStatus("idle");
-    } else if (status === "idle" && isActive) {
-      setStatus("listening");
-    }
-  };
-
-  const { label, color } = statusConfig[status];
+  const { label, color, dotColor } = statusConfig[status];
+  const totalDuration = messages.reduce((sum, m) => sum + (m.duration ?? 0), 0);
 
   return (
-    <Card className={cn("dark:bg-zinc-900/50 bg-white overflow-hidden", className)}>
-      <CardHeader className="p-4 pb-0">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <CardTitle className="text-base text-zinc-900 dark:text-white">
-              Voice Chat
-            </CardTitle>
-            <div className="flex items-center gap-1.5">
-              <div className={cn("h-2 w-2 rounded-full", color)} />
-              <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                {label}
-              </span>
-            </div>
-          </div>
+    <Card
+      className={cn(
+        "flex flex-col overflow-hidden dark:bg-zinc-900/50 bg-white",
+        className
+      )}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 px-4 py-3">
+        <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
-            {isActive && (
-              <Badge variant="secondary" className="text-xs font-mono gap-1">
-                <Clock className="h-3 w-3" />
-                {formatDuration(elapsed)}
-              </Badge>
-            )}
-            <button
-              onClick={() => setShowSettings(!showSettings)}
-              className="rounded-lg p-1.5 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 dark:hover:text-zinc-200 dark:hover:bg-zinc-800 transition-colors"
-              aria-label="Voice settings"
+            <div className={cn("h-2 w-2 rounded-full", dotColor)} />
+            <span className={cn("text-sm font-medium", color)}>{label}</span>
+          </div>
+          {activePreset && (
+            <Badge
+              variant="secondary"
+              className="text-[10px] dark:bg-zinc-800 dark:text-zinc-400"
             >
-              {showSettings ? (
-                <ChevronUp className="h-4 w-4" />
-              ) : (
-                <Settings2 className="h-4 w-4" />
-              )}
-            </button>
-          </div>
-        </div>
-      </CardHeader>
-
-      <CardContent className="p-4 space-y-4">
-        {/* Settings panel */}
-        {showSettings && (
-          <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 p-4">
-            <VoicePresetPicker
-              presets={presets}
-              selected={selectedPreset}
-              onSelect={setSelectedPreset}
-            />
-          </div>
-        )}
-
-        {/* Waveform */}
-        <div className="rounded-xl bg-zinc-50 dark:bg-zinc-900 p-4">
-          <WaveformVisualizer status={status} />
-        </div>
-
-        {/* Transcript */}
-        <div
-          ref={scrollRef}
-          className="max-h-64 overflow-y-auto space-y-3 scroll-smooth"
-        >
-          {messages.length === 0 ? (
-            <p className="text-center text-sm text-zinc-400 dark:text-zinc-500 py-8">
-              Start a voice session to begin chatting
-            </p>
-          ) : (
-            messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={cn(
-                  "flex flex-col gap-1 max-w-[85%]",
-                  msg.role === "user" ? "ml-auto items-end" : "items-start"
-                )}
-              >
-                <div
-                  className={cn(
-                    "rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
-                    msg.role === "user"
-                      ? "bg-indigo-500 text-white rounded-br-md"
-                      : "bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 rounded-bl-md"
-                  )}
-                >
-                  {msg.content}
-                </div>
-                <div className="flex items-center gap-2 text-[10px] text-zinc-400 dark:text-zinc-500 px-1">
-                  <span>{formatTime(msg.timestamp)}</span>
-                  {msg.duration_ms && (
-                    <span>{(msg.duration_ms / 1000).toFixed(1)}s</span>
-                  )}
-                </div>
-              </div>
-            ))
+              {activePreset.name}
+            </Badge>
           )}
         </div>
+        <div className="flex items-center gap-2">
+          {isActive && (
+            <div className="flex items-center gap-1 text-xs text-zinc-400">
+              <Clock className="h-3 w-3" />
+              {formatDuration(elapsed)}
+            </div>
+          )}
+          {onOpenSettings && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={onOpenSettings}
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+      </div>
 
-        {/* Controls */}
-        <div className="flex items-center justify-center gap-4 pt-2">
-          <button
-            onClick={handleMuteToggle}
-            disabled={!isActive}
-            className={cn(
-              "rounded-full p-3 transition-all duration-200",
-              isActive
-                ? status === "listening"
-                  ? "bg-emerald-100 text-emerald-600 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400"
-                  : "bg-zinc-100 text-zinc-400 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-500"
-                : "bg-zinc-100 text-zinc-300 cursor-not-allowed dark:bg-zinc-800 dark:text-zinc-600"
-            )}
-            aria-label={status === "listening" ? "Mute" : "Unmute"}
-          >
-            {status === "listening" ? (
-              <Mic className="h-5 w-5" />
-            ) : (
-              <MicOff className="h-5 w-5" />
-            )}
-          </button>
+      {/* Messages */}
+      <div
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto px-4 py-4 space-y-4 min-h-[200px] max-h-[400px]"
+      >
+        {messages.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-center py-12">
+            <div className="rounded-full bg-zinc-100 dark:bg-zinc-800 p-4 mb-4">
+              <Mic className="h-6 w-6 text-zinc-400" />
+            </div>
+            <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              Start a voice conversation
+            </p>
+            <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-500 max-w-[240px]">
+              {activePreset
+                ? `Using ${activePreset.name} voice. Click the call button to begin.`
+                : "Select a voice preset and click the call button to begin."}
+            </p>
+          </div>
+        ) : (
+          messages.map((msg) => (
+            <div
+              key={msg.id}
+              className={cn(
+                "flex gap-3",
+                msg.role === "user" ? "flex-row-reverse" : "flex-row"
+              )}
+            >
+              <div
+                className={cn(
+                  "max-w-[80%] rounded-2xl px-4 py-2.5",
+                  msg.role === "user"
+                    ? "bg-indigo-500 text-white"
+                    : "bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100"
+                )}
+              >
+                <p className="text-sm leading-relaxed">{msg.content}</p>
+                <div
+                  className={cn(
+                    "mt-1.5 flex items-center gap-2 text-[10px]",
+                    msg.role === "user"
+                      ? "text-indigo-200"
+                      : "text-zinc-400 dark:text-zinc-500"
+                  )}
+                >
+                  <span>{formatTime(msg.timestamp)}</span>
+                  {msg.duration && <span>· {msg.duration.toFixed(1)}s</span>}
+                </div>
+              </div>
+            </div>
+          ))
+        )}
 
-          <button
-            onClick={handleToggleCall}
+        {/* Streaming indicator when speaking */}
+        {status === "speaking" && (
+          <div className="flex gap-3">
+            <div className="max-w-[80%] rounded-2xl px-4 py-3 bg-zinc-100 dark:bg-zinc-800">
+              <div className="flex items-center gap-2">
+                <div className="flex gap-1">
+                  {[0, 1, 2].map((i) => (
+                    <div
+                      key={i}
+                      className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-bounce"
+                      style={{ animationDelay: `${i * 150}ms` }}
+                    />
+                  ))}
+                </div>
+                <span className="text-xs text-zinc-400">Speaking…</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Waveform + Controls */}
+      <div className="border-t border-zinc-100 dark:border-zinc-800 px-4 py-4 space-y-3">
+        {isActive && <WaveformVisualizer status={status} height={48} bars={50} />}
+
+        <div className="flex items-center justify-center gap-3">
+          {isActive && (
+            <Button
+              variant="secondary"
+              size="icon"
+              className={cn(
+                "h-10 w-10 rounded-full",
+                isMuted && "bg-red-500/10 border-red-500/20 text-red-400"
+              )}
+              onClick={onToggleMute}
+            >
+              {isMuted ? (
+                <MicOff className="h-4 w-4" />
+              ) : (
+                <Mic className="h-4 w-4" />
+              )}
+            </Button>
+          )}
+
+          <Button
+            size="icon"
             className={cn(
-              "rounded-full p-4 shadow-lg transition-all duration-200",
+              "h-12 w-12 rounded-full transition-all",
               isActive
-                ? "bg-red-500 hover:bg-red-600 text-white shadow-red-500/25"
-                : "bg-indigo-500 hover:bg-indigo-600 text-white shadow-indigo-500/25"
+                ? "bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/25"
+                : "bg-indigo-500 hover:bg-indigo-600 text-white shadow-lg shadow-indigo-500/25"
             )}
-            aria-label={isActive ? "End call" : "Start call"}
+            onClick={isActive ? onEndSession : onStartSession}
           >
             {isActive ? (
-              <PhoneOff className="h-6 w-6" />
+              <PhoneOff className="h-5 w-5" />
             ) : (
-              <Phone className="h-6 w-6" />
+              <Phone className="h-5 w-5" />
             )}
-          </button>
+          </Button>
 
-          <div className="w-11" /> {/* Spacer for symmetry */}
+          {isActive && (
+            <div className="flex items-center gap-1 text-[10px] text-zinc-400 min-w-[60px]">
+              <span>{formatDuration(totalDuration)} audio</span>
+            </div>
+          )}
         </div>
-
-        {/* Selected preset indicator */}
-        <div className="text-center">
-          <span className="text-xs text-zinc-400 dark:text-zinc-500">
-            Using{" "}
-            <span className="font-medium text-zinc-600 dark:text-zinc-300">
-              {selectedPreset.name}
-            </span>{" "}
-            voice via {selectedPreset.provider}
-          </span>
-        </div>
-      </CardContent>
+      </div>
     </Card>
   );
 }

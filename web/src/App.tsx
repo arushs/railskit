@@ -6,8 +6,9 @@ import { SignUpPage } from "./pages/auth/SignUpPage";
 import { MagicLinkPage } from "./pages/auth/MagicLinkPage";
 import { MagicLinkVerifyPage } from "./pages/auth/MagicLinkVerifyPage";
 import { OAuthCallbackPage } from "./pages/auth/OAuthCallbackPage";
-import { DashboardPage } from "./pages/DashboardPage";
+import DashboardPage from "./pages/DashboardPage";
 import LandingPage from "./pages/LandingPage";
+import VoicePage from "./pages/dashboard/VoicePage";
 
 function App() {
   return (
@@ -28,6 +29,16 @@ function App() {
             element={
               <ProtectedRoute>
                 <DashboardPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Voice Agents */}
+          <Route
+            path="/agents/voice"
+            element={
+              <ProtectedRoute>
+                <VoicePage />
               </ProtectedRoute>
             }
           />

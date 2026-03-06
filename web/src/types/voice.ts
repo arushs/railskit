@@ -1,39 +1,52 @@
 // ── Voice Agent Types ──
 
-export type VoiceStatus = "idle" | "connecting" | "listening" | "speaking" | "processing" | "error";
-
 export interface VoicePreset {
   id: string;
   name: string;
   description: string;
-  voice_id: string;
-  provider: "elevenlabs" | "openai" | "deepgram";
-  language: string;
-  accent?: string;
-  speed: number;
-  pitch: number;
-  preview_url?: string;
+  provider: "elevenlabs" | "openai" | "deepgram" | "custom";
+  voiceId: string;
+  /** Sample audio URL for preview */
+  sampleUrl?: string;
+  tags: string[];
+  config: {
+    stability?: number;
+    similarity?: number;
+    speed?: number;
+    pitch?: number;
+  };
 }
 
 export interface VoiceMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
-  audio_url?: string;
-  duration_ms?: number;
+  audioUrl?: string;
+  /** Duration in seconds */
+  duration?: number;
   timestamp: string;
 }
 
+export type VoiceStatus =
+  | "idle"
+  | "connecting"
+  | "listening"
+  | "processing"
+  | "speaking"
+  | "error";
+
 export interface VoiceSession {
   id: string;
-  status: VoiceStatus;
   preset: VoicePreset;
+  status: VoiceStatus;
   messages: VoiceMessage[];
-  started_at: string;
-  duration_ms: number;
+  startedAt: string;
+  /** Cumulative audio duration in seconds */
+  totalDuration: number;
 }
 
 export interface AudioLevel {
+  /** 0-1 normalized amplitude */
+  level: number;
   timestamp: number;
-  level: number; // 0-1 normalized
 }
