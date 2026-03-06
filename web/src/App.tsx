@@ -7,6 +7,8 @@ import { MagicLinkPage } from "./pages/auth/MagicLinkPage";
 import { MagicLinkVerifyPage } from "./pages/auth/MagicLinkVerifyPage";
 import { OAuthCallbackPage } from "./pages/auth/OAuthCallbackPage";
 import { DashboardPage } from "./pages/DashboardPage";
+import { DocumentsPage } from "./pages/rag/DocumentsPage";
+import { CollectionPage } from "./pages/rag/CollectionPage";
 import LandingPage from "./pages/LandingPage";
 
 function App() {
@@ -28,6 +30,22 @@ function App() {
             element={
               <ProtectedRoute>
                 <DashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/documents"
+            element={
+              <ProtectedRoute>
+                <DocumentsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/collections/:id"
+            element={
+              <ProtectedRoute>
+                <CollectionPage />
               </ProtectedRoute>
             }
           />
