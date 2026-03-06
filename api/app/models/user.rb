@@ -11,6 +11,12 @@ class User < ApplicationRecord
   has_many :collections, dependent: :destroy
   has_many :voice_sessions, dependent: :destroy
 
+  # Teams
+  has_many :team_memberships, dependent: :destroy
+  has_many :teams, through: :team_memberships
+  has_many :owned_teams, class_name: "Team", foreign_key: :owner_id, dependent: :destroy
+  belongs_to :current_team, class_name: "Team", optional: true
+
   validates :plan, inclusion: { in: %w[free starter pro enterprise] }
 
   def jwt_payload

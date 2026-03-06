@@ -1,12 +1,14 @@
 import { Link, useLocation } from "react-router";
 import { cn } from "@/lib/utils";
-import { MessageSquare, DollarSign, Wrench, LayoutDashboard, ArrowLeft } from "lucide-react";
+import { MessageSquare, DollarSign, Wrench, LayoutDashboard, ArrowLeft, Users } from "lucide-react";
+import { TeamSwitcher } from "@/components/teams/TeamSwitcher";
 
 const navItems = [
   { to: "/dashboard", label: "Overview", icon: LayoutDashboard, end: true },
   { to: "/dashboard/chats", label: "Chats", icon: MessageSquare },
   { to: "/dashboard/costs", label: "Costs", icon: DollarSign },
   { to: "/dashboard/tools", label: "Tools", icon: Wrench },
+  { to: "/teams", label: "Teams", icon: Users },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -26,6 +28,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </Link>
           <div className="h-5 w-px bg-zinc-800" />
           <span className="text-sm font-semibold text-white">Agent Dashboard</span>
+          <div className="h-5 w-px bg-zinc-800" />
+          <TeamSwitcher />
           <nav className="ml-auto flex items-center gap-1">
             {navItems.map((item) => {
               const Icon = item.icon;

@@ -39,6 +39,13 @@ Rails.application.routes.draw do
 
 
 
+    # Teams
+    resources :teams do
+      resources :memberships, controller: "team_memberships", only: %i[index update destroy]
+      resources :invitations, controller: "team_invitations", only: %i[index create destroy]
+    end
+    post "invitations/:token/accept", to: "team_invitations#accept"
+
     # RAG: Collections & Documents
     resources :collections, only: %i[index show create update destroy] do
       post :search, on: :member
