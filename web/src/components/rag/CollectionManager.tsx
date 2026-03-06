@@ -1,225 +1,307 @@
 import { useState } from "react";
-import type { Collection } from "@/types/rag";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
-  FolderOpen,
-  Plus,
-  Trash2,
+  Database,
   FileText,
   Layers,
-  Calendar,
-  Check,
-  X,
+  Clock,
+  ChevronRight,
+  Plus,
+  Trash2,
+  RefreshCw,
+  Settings2,
+  AlertCircle,
 } from "lucide-react";
+import type { DocumentCollection, Document } from "@/types/rag";
 
 interface CollectionManagerProps {
-  collections: Collection[];
-  selectedId?: string;
-  onSelect?: (id: string) => void;
-  onCreate?: (name: string, description: string) => void;
-  onDelete?: (id: string) => void;
+  collections: DocumentCollection[];
+  documents: Document[];
+  onSelectCollection?: (collection: DocumentCollection) => void;
+  onCreateCollection?: () => void;
+  onDeleteCollection?: (id: string) => void;
+  onReindexCollection?: (id: string) => void;
   className?: string;
 }
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024)
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
 
-function formatCount(n: number): string {
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
-  return String(n);
+function timeAgo(iso: string): string {
+  const seconds = Math.floor(
+    (Date.now() - new Date(iso).getTime()) / 1000
+  );
+  if (seconds < 60) return "just now";
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+  return `${Math.floor(seconds / 86400)}d ago`;
 }
 
-export function CollectionManager({
+const statusStyles: Record<
+  string,
+  { label: string; color: string; dot: string }
+> = {
+  active: {
+    label: "Active",
+    color: "text-emerald-400",
+    dot: "bg-emerald-400",
+  },
+  indexing: {
+    label: "Indexing",
+    color: "text-amber-400",
+    dot: "bg-amber-400 animate-pulse",
+  },
+  error: {
+    label: "Error",
+    color: "text-red-400",
+    dot: "bg-red-400",
+  },
+};
+
+const docStatusStyles: Record<
+  string,
+  { label: string; color: string }
+> = {
+  pending: { label: "Pending", color: "bg-zinc-500/10 text-zinc-400 border-zinc-500/20" },
+  processing: { label: "Processing", color: "bg-amber-500/10 text-amber-400 border-amber-500/20" },
+  indexed: { label: "Indexed", color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" },
+  error: { label: "Error", color: "bg-red-500/10 text-red-400 border-red-500/20" },
+};
+
+const chunkStrategyLabels: Record<string, string> = {
+  fixed: "Fixed-size",
+  semantic: "Semantic",
+  recursive: "Recursive",
+};
+
+export default function CollectionManager({
   collections,
-  selectedId,
-  onSelect,
-  onCreate,
-  onDelete,
+  documents,
+  onSelectCollection,
+  onCreateCollection,
+  onDeleteCollection,
+  onReindexCollection,
   className,
 }: CollectionManagerProps) {
-  const [showCreate, setShowCreate] = useState(false);
-  const [newName, setNewName] = useState("");
-  const [newDesc, setNewDesc] = useState("");
-  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const handleCreate = () => {
-    if (!newName.trim()) return;
-    onCreate?.(newName.trim(), newDesc.trim());
-    setNewName("");
-    setNewDesc("");
-    setShowCreate(false);
-  };
-
-  const handleDelete = (id: string) => {
-    if (confirmDelete === id) {
-      onDelete?.(id);
-      setConfirmDelete(null);
-    } else {
-      setConfirmDelete(id);
-      setTimeout(() => setConfirmDelete(null), 3000);
-    }
-  };
+  const getCollectionDocs = (collectionId: string) =>
+    documents.filter((d) => d.collectionId === collectionId);
 
   return (
-    <Card className={cn("dark:bg-zinc-900/50 bg-white", className)}>
-      <CardHeader className="p-4 pb-0">
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2 text-base text-zinc-900 dark:text-white">
-            <FolderOpen className="h-4 w-4 text-indigo-500" />
+    <div className={cn("space-y-4", className)}>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
             Collections
-          </CardTitle>
-          <button
-            onClick={() => setShowCreate(!showCreate)}
-            className={cn(
-              "rounded-lg p-1.5 transition-colors",
-              showCreate
-                ? "bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400"
-                : "text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 dark:hover:text-zinc-200 dark:hover:bg-zinc-800"
-            )}
-            aria-label="Create collection"
-          >
-            <Plus className="h-4 w-4" />
-          </button>
+          </h3>
+          <p className="text-xs text-zinc-400">
+            {collections.length} collection{collections.length !== 1 ? "s" : ""}{" "}
+            ·{" "}
+            {collections.reduce((s, c) => s + c.documentCount, 0)} documents
+            ·{" "}
+            {formatSize(collections.reduce((s, c) => s + c.totalSize, 0))} total
+          </p>
         </div>
-      </CardHeader>
-
-      <CardContent className="p-4 space-y-3">
-        {/* Create form */}
-        {showCreate && (
-          <div className="rounded-lg border border-indigo-200 dark:border-indigo-800/50 bg-indigo-50/50 dark:bg-indigo-950/20 p-3 space-y-2">
-            <input
-              type="text"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              placeholder="Collection name"
-              className="w-full rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm text-zinc-800 dark:text-zinc-200 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-              autoFocus
-            />
-            <input
-              type="text"
-              value={newDesc}
-              onChange={(e) => setNewDesc(e.target.value)}
-              placeholder="Description (optional)"
-              className="w-full rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm text-zinc-800 dark:text-zinc-200 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-            />
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setShowCreate(false)}
-                className="rounded-md px-3 py-1.5 text-xs text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleCreate}
-                disabled={!newName.trim()}
-                className="rounded-md bg-indigo-500 hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-3 py-1.5 text-xs font-medium transition-colors flex items-center gap-1"
-              >
-                <Check className="h-3 w-3" />
-                Create
-              </button>
-            </div>
-          </div>
+        {onCreateCollection && (
+          <Button size="sm" onClick={onCreateCollection}>
+            <Plus className="mr-1.5 h-3.5 w-3.5" />
+            New Collection
+          </Button>
         )}
+      </div>
 
-        {/* Collection list */}
-        {collections.length === 0 ? (
-          <div className="text-center py-8">
-            <FolderOpen className="mx-auto h-8 w-8 text-zinc-300 dark:text-zinc-600 mb-2" />
-            <p className="text-sm text-zinc-400 dark:text-zinc-500">
-              No collections yet
-            </p>
-            <button
-              onClick={() => setShowCreate(true)}
-              className="mt-2 text-xs text-indigo-500 hover:text-indigo-600 dark:text-indigo-400"
+      {/* Collection cards */}
+      <div className="space-y-3">
+        {collections.map((col) => {
+          const isExpanded = expandedId === col.id;
+          const colDocs = getCollectionDocs(col.id);
+          const { label, color, dot } = statusStyles[col.status] ?? statusStyles.active;
+
+          return (
+            <Card
+              key={col.id}
+              className="dark:bg-zinc-900/50 bg-white overflow-hidden"
             >
-              Create your first collection
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {collections.map((col) => {
-              const isSelected = selectedId === col.id;
-              const isDeleting = confirmDelete === col.id;
-
-              return (
-                <div
-                  key={col.id}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => onSelect?.(col.id)}
-                  onKeyDown={(e) => e.key === "Enter" && onSelect?.(col.id)}
-                  className={cn(
-                    "rounded-lg border p-3 transition-all duration-150 cursor-pointer",
-                    isSelected
-                      ? "border-indigo-300 bg-indigo-50/50 dark:border-indigo-700/50 dark:bg-indigo-950/20 ring-1 ring-indigo-200 dark:ring-indigo-800/50"
-                      : "border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700"
-                  )}
+              <CardContent className="p-0">
+                {/* Collection header */}
+                <button
+                  onClick={() =>
+                    setExpandedId(isExpanded ? null : col.id)
+                  }
+                  className="w-full flex items-center gap-4 p-4 text-left hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors"
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <h4 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 truncate">
+                  <div className="shrink-0 rounded-lg bg-indigo-500/10 p-2.5">
+                    <Database className="h-5 w-5 text-indigo-400" />
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-semibold text-zinc-900 dark:text-white truncate">
                         {col.name}
                       </h4>
-                      {col.description && (
-                        <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2">
-                          {col.description}
+                      <div className="flex items-center gap-1.5">
+                        <div className={cn("h-1.5 w-1.5 rounded-full", dot)} />
+                        <span className={cn("text-[10px] font-medium", color)}>
+                          {label}
+                        </span>
+                      </div>
+                    </div>
+                    <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400 truncate">
+                      {col.description}
+                    </p>
+                    <div className="mt-2 flex items-center gap-4 text-[10px] text-zinc-400">
+                      <span className="flex items-center gap-1">
+                        <FileText className="h-3 w-3" />
+                        {col.documentCount} docs
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Layers className="h-3 w-3" />
+                        {col.totalChunks.toLocaleString()} chunks
+                      </span>
+                      <span>{formatSize(col.totalSize)}</span>
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {timeAgo(col.updatedAt)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="shrink-0 flex items-center gap-2">
+                    <Badge
+                      variant="secondary"
+                      className="text-[10px] dark:bg-zinc-800 dark:text-zinc-400"
+                    >
+                      {chunkStrategyLabels[col.chunkStrategy] ?? col.chunkStrategy}
+                    </Badge>
+                    <ChevronRight
+                      className={cn(
+                        "h-4 w-4 text-zinc-400 transition-transform",
+                        isExpanded && "rotate-90"
+                      )}
+                    />
+                  </div>
+                </button>
+
+                {/* Expanded: document list + actions */}
+                {isExpanded && (
+                  <div className="border-t border-zinc-100 dark:border-zinc-800">
+                    {/* Actions bar */}
+                    <div className="flex items-center gap-2 px-4 py-2 bg-zinc-50/50 dark:bg-zinc-800/20">
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] dark:border-zinc-700 dark:text-zinc-400"
+                      >
+                        {col.embeddingModel}
+                      </Badge>
+                      <div className="ml-auto flex items-center gap-1">
+                        {onSelectCollection && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-xs"
+                            onClick={() => onSelectCollection(col)}
+                          >
+                            <Settings2 className="mr-1 h-3 w-3" />
+                            Configure
+                          </Button>
+                        )}
+                        {onReindexCollection && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-xs"
+                            onClick={() => onReindexCollection(col.id)}
+                          >
+                            <RefreshCw className="mr-1 h-3 w-3" />
+                            Reindex
+                          </Button>
+                        )}
+                        {onDeleteCollection && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-xs text-red-400 hover:text-red-300"
+                            onClick={() => onDeleteCollection(col.id)}
+                          >
+                            <Trash2 className="mr-1 h-3 w-3" />
+                            Delete
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Documents */}
+                    <div className="px-4 py-2 space-y-1">
+                      {colDocs.length > 0 ? (
+                        colDocs.map((doc) => {
+                          const ds = docStatusStyles[doc.status] ?? docStatusStyles.pending;
+                          return (
+                            <div
+                              key={doc.id}
+                              className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors"
+                            >
+                              <FileText className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm text-zinc-900 dark:text-zinc-100 truncate">
+                                    {doc.filename}
+                                  </span>
+                                  <Badge
+                                    variant="outline"
+                                    className={cn("text-[10px]", ds.color)}
+                                  >
+                                    {ds.label}
+                                  </Badge>
+                                </div>
+                                {doc.status === "processing" && (
+                                  <div className="mt-1 h-1 w-full rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
+                                    <div
+                                      className="h-full rounded-full bg-amber-400 transition-all"
+                                      style={{ width: `${doc.progress}%` }}
+                                    />
+                                  </div>
+                                )}
+                                {doc.status === "error" && doc.errorMessage && (
+                                  <p className="mt-1 flex items-center gap-1 text-[10px] text-red-400">
+                                    <AlertCircle className="h-2.5 w-2.5" />
+                                    {doc.errorMessage}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="shrink-0 text-right text-[10px] text-zinc-400">
+                                <p>{formatSize(doc.size)}</p>
+                                <p>
+                                  {doc.chunkCount > 0
+                                    ? `${doc.chunkCount} chunks`
+                                    : "—"}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <p className="py-4 text-center text-xs text-zinc-400">
+                          No documents yet — upload files to get started
                         </p>
                       )}
                     </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete(col.id);
-                      }}
-                      className={cn(
-                        "rounded p-1 transition-colors shrink-0",
-                        isDeleting
-                          ? "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400"
-                          : "text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
-                      )}
-                      aria-label={isDeleting ? "Confirm delete" : `Delete ${col.name}`}
-                    >
-                      {isDeleting ? (
-                        <X className="h-3.5 w-3.5" />
-                      ) : (
-                        <Trash2 className="h-3.5 w-3.5" />
-                      )}
-                    </button>
                   </div>
-
-                  <div className="mt-2 flex items-center gap-3 text-[11px] text-zinc-400 dark:text-zinc-500">
-                    <span className="flex items-center gap-1">
-                      <FileText className="h-3 w-3" />
-                      {col.document_count} docs
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Layers className="h-3 w-3" />
-                      {formatCount(col.total_chunks)} chunks
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Calendar className="h-3 w-3" />
-                      {formatDate(col.updated_at)}
-                    </span>
-                  </div>
-
-                  <div className="mt-1.5">
-                    <Badge className="text-[10px] bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
-                      {col.embedding_model}
-                    </Badge>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
   );
 }

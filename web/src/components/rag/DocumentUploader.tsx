@@ -1,124 +1,145 @@
 import { useState, useRef, useCallback } from "react";
-import type { RagDocument, UploadStatus, Collection } from "@/types/rag";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Upload,
   FileText,
-  FileSpreadsheet,
   File,
   X,
   CheckCircle2,
   AlertCircle,
   Loader2,
 } from "lucide-react";
+import type { UploadStatus } from "@/types/rag";
 
-interface DocumentUploaderProps {
-  collections: Collection[];
-  selectedCollectionId: string;
-  onUpload?: (files: File[]) => void;
-  existingDocuments?: RagDocument[];
-  className?: string;
-}
-
-interface PendingFile {
+interface FileEntry {
+  id: string;
   file: File;
   status: UploadStatus;
   progress: number;
   error?: string;
 }
 
-const acceptedTypes = [".pdf", ".txt", ".md", ".csv", ".html", ".docx"];
-
-const fileIcons: Record<string, typeof FileText> = {
-  pdf: FileText,
-  csv: FileSpreadsheet,
-  default: File,
-};
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / 1048576).toFixed(1)} MB`;
+interface DocumentUploaderProps {
+  collectionId: string;
+  collectionName: string;
+  onUploadComplete?: (files: File[]) => void;
+  className?: string;
+  /** Accepted MIME types */
+  accept?: string;
+  maxSizeMb?: number;
 }
 
-const statusBadge: Record<UploadStatus, { label: string; variant: string; icon: typeof Loader2 | null }> = {
-  idle: { label: "Pending", variant: "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400", icon: null },
-  uploading: { label: "Uploading", variant: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300", icon: Loader2 },
-  processing: { label: "Processing", variant: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300", icon: Loader2 },
-  chunking: { label: "Chunking", variant: "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300", icon: Loader2 },
-  embedding: { label: "Embedding", variant: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300", icon: Loader2 },
-  ready: { label: "Ready", variant: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300", icon: CheckCircle2 },
-  error: { label: "Error", variant: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300", icon: AlertCircle },
+const fileIcons: Record<string, typeof FileText> = {
+  "application/pdf": FileText,
+  "text/markdown": FileText,
+  "text/csv": File,
+  "text/plain": FileText,
 };
 
-export function DocumentUploader({
-  collections,
-  selectedCollectionId,
-  onUpload,
-  existingDocuments = [],
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+export default function DocumentUploader({
+  collectionId: _collectionId,
+  collectionName,
+  onUploadComplete,
   className,
+  accept = ".pdf,.md,.txt,.csv,.json,.html",
+  maxSizeMb = 50,
 }: DocumentUploaderProps) {
-  const [pending, setPending] = useState<PendingFile[]>([]);
+  const [files, setFiles] = useState<FileEntry[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const simulateUpload = useCallback((_file: File, index: number) => {
-    const stages: UploadStatus[] = ["uploading", "processing", "chunking", "embedding", "ready"];
-    let step = 0;
-
-    const advance = () => {
-      if (step >= stages.length) return;
-      setPending((prev) =>
-        prev.map((p, i) =>
-          i === index
-            ? { ...p, status: stages[step], progress: ((step + 1) / stages.length) * 100 }
-            : p
-        )
-      );
-      step++;
-      if (step < stages.length) {
-        setTimeout(advance, 800 + Math.random() * 1200);
-      }
-    };
-
-    setTimeout(advance, 300);
-  }, []);
-
-  const handleFiles = useCallback(
-    (files: FileList | File[]) => {
-      const fileArray = Array.from(files);
-      const newPending: PendingFile[] = fileArray.map((f) => ({
-        file: f,
+  const addFiles = useCallback(
+    (newFiles: FileList | File[]) => {
+      const entries: FileEntry[] = Array.from(newFiles).map((file) => ({
+        id: crypto.randomUUID(),
+        file,
         status: "idle" as UploadStatus,
         progress: 0,
+        error:
+          file.size > maxSizeMb * 1024 * 1024
+            ? `File exceeds ${maxSizeMb}MB limit`
+            : undefined,
       }));
-
-      setPending((prev) => {
-        const startIdx = prev.length;
-        newPending.forEach((_, i) => simulateUpload(fileArray[i], startIdx + i));
-        return [...prev, ...newPending];
-      });
-
-      onUpload?.(fileArray);
+      setFiles((prev) => [...prev, ...entries]);
     },
-    [onUpload, simulateUpload]
+    [maxSizeMb]
   );
+
+  const removeFile = useCallback((id: string) => {
+    setFiles((prev) => prev.filter((f) => f.id !== id));
+  }, []);
+
+  const handleUpload = useCallback(() => {
+    const validFiles = files.filter((f) => !f.error && f.status === "idle");
+    if (!validFiles.length) return;
+
+    // Simulate upload for each file
+    validFiles.forEach((entry) => {
+      setFiles((prev) =>
+        prev.map((f) =>
+          f.id === entry.id ? { ...f, status: "uploading", progress: 0 } : f
+        )
+      );
+
+      // Simulate progress
+      let progress = 0;
+      const interval = setInterval(() => {
+        progress += Math.random() * 25 + 5;
+        if (progress >= 100) {
+          progress = 100;
+          clearInterval(interval);
+          setFiles((prev) =>
+            prev.map((f) =>
+              f.id === entry.id
+                ? { ...f, status: "processing", progress: 100 }
+                : f
+            )
+          );
+          // Simulate processing
+          setTimeout(() => {
+            setFiles((prev) =>
+              prev.map((f) =>
+                f.id === entry.id ? { ...f, status: "complete" } : f
+              )
+            );
+          }, 1500 + Math.random() * 2000);
+        } else {
+          setFiles((prev) =>
+            prev.map((f) =>
+              f.id === entry.id ? { ...f, progress: Math.min(progress, 99) } : f
+            )
+          );
+        }
+      }, 300);
+    });
+
+    onUploadComplete?.(validFiles.map((f) => f.file));
+  }, [files, onUploadComplete]);
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
       setIsDragging(false);
-      handleFiles(e.dataTransfer.files);
+      if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
     },
-    [handleFiles]
+    [addFiles]
   );
 
-  const removePending = (index: number) => {
-    setPending((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const collection = collections.find((c) => c.id === selectedCollectionId);
+  const pendingCount = files.filter(
+    (f) => f.status === "idle" && !f.error
+  ).length;
+  const activeCount = files.filter(
+    (f) => f.status === "uploading" || f.status === "processing"
+  ).length;
 
   return (
     <div className={cn("space-y-4", className)}>
@@ -132,142 +153,144 @@ export function DocumentUploader({
         onDrop={handleDrop}
         onClick={() => inputRef.current?.click()}
         className={cn(
-          "relative cursor-pointer rounded-xl border-2 border-dashed p-8 text-center transition-all duration-200",
+          "relative cursor-pointer rounded-xl border-2 border-dashed transition-all duration-200",
+          "flex flex-col items-center justify-center px-6 py-10 text-center",
           isDragging
-            ? "border-indigo-400 bg-indigo-50/50 dark:border-indigo-500 dark:bg-indigo-950/20"
-            : "border-zinc-300 hover:border-zinc-400 dark:border-zinc-700 dark:hover:border-zinc-600"
+            ? "border-indigo-400 bg-indigo-500/5 dark:bg-indigo-500/10"
+            : "border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600",
+          "dark:bg-zinc-900/30 bg-zinc-50/50"
         )}
       >
         <input
           ref={inputRef}
           type="file"
           multiple
-          accept={acceptedTypes.join(",")}
-          onChange={(e) => e.target.files && handleFiles(e.target.files)}
+          accept={accept}
           className="hidden"
+          onChange={(e) => e.target.files && addFiles(e.target.files)}
         />
-        <Upload
+        <div
           className={cn(
-            "mx-auto h-8 w-8 mb-3",
+            "rounded-full p-3 mb-3 transition-colors",
             isDragging
-              ? "text-indigo-500 dark:text-indigo-400"
-              : "text-zinc-400 dark:text-zinc-500"
+              ? "bg-indigo-500/10 text-indigo-400"
+              : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400"
           )}
-        />
+        >
+          <Upload className="h-6 w-6" />
+        </div>
         <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
           Drop files here or click to browse
         </p>
-        <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-500">
-          PDF, TXT, MD, CSV, HTML, DOCX — up to 10MB each
+        <p className="mt-1 text-xs text-zinc-400">
+          PDF, Markdown, CSV, TXT, JSON, HTML — up to {maxSizeMb}MB each
         </p>
-        {collection && (
-          <p className="mt-2 text-xs text-indigo-500 dark:text-indigo-400">
-            → {collection.name}
-          </p>
-        )}
+        <Badge
+          variant="secondary"
+          className="mt-3 text-[10px] dark:bg-zinc-800 dark:text-zinc-400"
+        >
+          Uploading to: {collectionName}
+        </Badge>
       </div>
 
-      {/* Pending uploads */}
-      {pending.length > 0 && (
-        <div className="space-y-2">
-          <h4 className="text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-            Uploads
-          </h4>
-          {pending.map((item, i) => {
-            const ext = item.file.name.split(".").pop() || "";
-            const Icon = fileIcons[ext] || fileIcons.default;
-            const badge = statusBadge[item.status];
-            const BadgeIcon = badge.icon;
-
-            return (
-              <div
-                key={`${item.file.name}-${i}`}
-                className="flex items-center gap-3 rounded-lg border border-zinc-200 dark:border-zinc-800 p-3 bg-white dark:bg-zinc-900/50"
-              >
-                <Icon className="h-5 w-5 text-zinc-400 dark:text-zinc-500 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="truncate text-sm font-medium text-zinc-800 dark:text-zinc-200">
-                      {item.file.name}
-                    </span>
-                    <Badge className={cn("text-[10px] shrink-0 gap-1", badge.variant)}>
-                      {BadgeIcon && <BadgeIcon className="h-3 w-3 animate-spin" />}
-                      {badge.label}
-                    </Badge>
-                  </div>
-                  <div className="mt-1.5 flex items-center gap-2">
-                    <div className="h-1 flex-1 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-indigo-500 transition-all duration-500 ease-out"
-                        style={{ width: `${item.progress}%` }}
-                      />
-                    </div>
-                    <span className="text-[10px] text-zinc-400 shrink-0">
-                      {formatBytes(item.file.size)}
-                    </span>
-                  </div>
-                </div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    removePending(i);
-                  }}
-                  className="rounded p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors shrink-0"
-                  aria-label={`Remove ${item.file.name}`}
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Existing documents */}
-      {existingDocuments.length > 0 && (
-        <div className="space-y-2">
-          <h4 className="text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-            Documents in collection
-          </h4>
-          {existingDocuments
-            .filter((d) => d.collection_id === selectedCollectionId)
-            .map((doc) => {
-              const Icon = fileIcons[doc.type] || fileIcons.default;
-              const badge = statusBadge[doc.status];
-              const BadgeIcon = badge.icon;
+      {/* File list */}
+      {files.length > 0 && (
+        <Card className="dark:bg-zinc-900/50 bg-white">
+          <CardContent className="p-4 space-y-2">
+            {files.map((entry) => {
+              const FileIcon =
+                fileIcons[entry.file.type] ?? File;
+              const isActive =
+                entry.status === "uploading" || entry.status === "processing";
 
               return (
                 <div
-                  key={doc.id}
-                  className="flex items-center gap-3 rounded-lg border border-zinc-200 dark:border-zinc-800 p-3 bg-white dark:bg-zinc-900/50"
+                  key={entry.id}
+                  className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors"
                 >
-                  <Icon className="h-5 w-5 text-zinc-400 dark:text-zinc-500 shrink-0" />
-                  <div className="flex-1 min-w-0">
+                  <FileIcon className="h-4 w-4 shrink-0 text-zinc-400" />
+                  <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="truncate text-sm font-medium text-zinc-800 dark:text-zinc-200">
-                        {doc.name}
+                      <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">
+                        {entry.file.name}
+                      </p>
+                      <span className="shrink-0 text-[10px] text-zinc-400">
+                        {formatSize(entry.file.size)}
                       </span>
-                      <Badge className={cn("text-[10px] shrink-0 gap-1", badge.variant)}>
-                        {BadgeIcon && (
-                          <BadgeIcon
-                            className={cn("h-3 w-3", doc.status !== "ready" && doc.status !== "error" && "animate-spin")}
-                          />
-                        )}
-                        {badge.label}
-                      </Badge>
                     </div>
-                    <p className="mt-0.5 text-xs text-zinc-400 dark:text-zinc-500">
-                      {formatBytes(doc.size_bytes)}
-                      {doc.chunk_count > 0 && ` · ${doc.chunk_count} chunks`}
-                    </p>
-                    {doc.error && (
-                      <p className="mt-1 text-xs text-red-500">{doc.error}</p>
+                    {/* Progress bar */}
+                    {isActive && (
+                      <div className="mt-1.5 h-1 w-full rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
+                        <div
+                          className={cn(
+                            "h-full rounded-full transition-all duration-300",
+                            entry.status === "processing"
+                              ? "bg-amber-400 animate-pulse"
+                              : "bg-indigo-500"
+                          )}
+                          style={{
+                            width: `${entry.progress}%`,
+                          }}
+                        />
+                      </div>
+                    )}
+                    {entry.error && (
+                      <p className="mt-1 text-[10px] text-red-400">
+                        {entry.error}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Status icon */}
+                  <div className="shrink-0">
+                    {entry.status === "complete" && (
+                      <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                    )}
+                    {entry.error && (
+                      <AlertCircle className="h-4 w-4 text-red-400" />
+                    )}
+                    {isActive && (
+                      <Loader2 className="h-4 w-4 text-indigo-400 animate-spin" />
+                    )}
+                    {entry.status === "idle" && !entry.error && (
+                      <button
+                        onClick={() => removeFile(entry.id)}
+                        className="p-0.5 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+                      >
+                        <X className="h-3.5 w-3.5 text-zinc-400" />
+                      </button>
                     )}
                   </div>
                 </div>
               );
             })}
-        </div>
+
+            {/* Upload button */}
+            {pendingCount > 0 && (
+              <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800">
+                <Button
+                  onClick={handleUpload}
+                  disabled={activeCount > 0}
+                  className="w-full"
+                  size="sm"
+                >
+                  {activeCount > 0 ? (
+                    <>
+                      <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                      Processing {activeCount} file
+                      {activeCount > 1 ? "s" : ""}…
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="mr-2 h-3.5 w-3.5" />
+                      Upload {pendingCount} file{pendingCount > 1 ? "s" : ""}
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
     </div>
   );

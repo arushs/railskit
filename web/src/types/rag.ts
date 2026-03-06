@@ -1,44 +1,54 @@
 // ── RAG Pipeline Types ──
 
-export type UploadStatus = "idle" | "uploading" | "processing" | "chunking" | "embedding" | "ready" | "error";
-
-export interface RagDocument {
-  id: string;
-  name: string;
-  type: "pdf" | "txt" | "md" | "csv" | "html" | "docx";
-  size_bytes: number;
-  chunk_count: number;
-  status: UploadStatus;
-  collection_id: string;
-  created_at: string;
-  updated_at: string;
-  error?: string;
-}
-
-export interface Collection {
+export interface DocumentCollection {
   id: string;
   name: string;
   description: string;
-  document_count: number;
-  total_chunks: number;
-  embedding_model: string;
-  created_at: string;
-  updated_at: string;
+  documentCount: number;
+  totalChunks: number;
+  /** Total size in bytes */
+  totalSize: number;
+  embeddingModel: string;
+  chunkStrategy: "fixed" | "semantic" | "recursive";
+  status: "active" | "indexing" | "error";
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Document {
+  id: string;
+  collectionId: string;
+  filename: string;
+  mimeType: string;
+  /** Size in bytes */
+  size: number;
+  chunkCount: number;
+  status: "pending" | "processing" | "indexed" | "error";
+  /** 0-100 */
+  progress: number;
+  errorMessage?: string;
+  metadata: Record<string, string>;
+  createdAt: string;
 }
 
 export interface SearchResult {
   id: string;
+  documentId: string;
+  documentName: string;
+  collectionName: string;
   content: string;
-  document_name: string;
-  collection_name: string;
-  similarity: number;
-  chunk_index: number;
-  metadata?: Record<string, unknown>;
+  /** 0-1 similarity score */
+  score: number;
+  /** Chunk index within the document */
+  chunkIndex: number;
+  metadata: Record<string, string>;
 }
 
 export interface SearchQuery {
   query: string;
-  collection_ids?: string[];
-  top_k: number;
-  similarity_threshold: number;
+  collectionIds?: string[];
+  topK?: number;
+  minScore?: number;
 }
+
+export type UploadStatus = "idle" | "uploading" | "processing" | "complete" | "error";

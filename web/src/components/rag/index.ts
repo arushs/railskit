@@ -1,3 +1,3 @@
-export { DocumentUploader } from "./DocumentUploader";
-export { SearchPreview } from "./SearchPreview";
-export { CollectionManager } from "./CollectionManager";
+export { default as DocumentUploader } from "./DocumentUploader";
+export { default as SearchPreview } from "./SearchPreview";
+export { default as CollectionManager } from "./CollectionManager";

@@ -1,198 +1,219 @@
-import { useState } from "react";
-import type { SearchResult, Collection } from "@/types/rag";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useCallback } from "react";
 import { cn } from "@/lib/utils";
-import { Search, FileText, Sparkles, ArrowRight } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Search, FileText, Loader2, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
+import type { SearchResult, DocumentCollection } from "@/types/rag";
 
 interface SearchPreviewProps {
-  collections: Collection[];
-  results?: SearchResult[];
-  onSearch?: (query: string, collectionIds: string[], topK: number) => void;
+  collections: DocumentCollection[];
+  results: SearchResult[];
+  onSearch: (query: string, collectionIds?: string[]) => void;
+  isSearching?: boolean;
   className?: string;
 }
 
-function similarityColor(score: number): string {
-  if (score >= 0.9) return "text-emerald-600 dark:text-emerald-400";
-  if (score >= 0.8) return "text-blue-600 dark:text-blue-400";
-  if (score >= 0.7) return "text-amber-600 dark:text-amber-400";
-  return "text-zinc-500 dark:text-zinc-400";
+function scoreColor(score: number): string {
+  if (score >= 0.9) return "text-emerald-400";
+  if (score >= 0.8) return "text-blue-400";
+  if (score >= 0.7) return "text-amber-400";
+  return "text-zinc-400";
 }
 
-function similarityBg(score: number): string {
-  if (score >= 0.9) return "bg-emerald-500";
-  if (score >= 0.8) return "bg-blue-500";
-  if (score >= 0.7) return "bg-amber-500";
-  return "bg-zinc-400";
+function scoreBg(score: number): string {
+  if (score >= 0.9) return "bg-emerald-500/10 border-emerald-500/20";
+  if (score >= 0.8) return "bg-blue-500/10 border-blue-500/20";
+  if (score >= 0.7) return "bg-amber-500/10 border-amber-500/20";
+  return "bg-zinc-500/10 border-zinc-500/20";
 }
 
-export function SearchPreview({
+export default function SearchPreview({
   collections,
-  results: externalResults,
+  results,
   onSearch,
+  isSearching = false,
   className,
 }: SearchPreviewProps) {
   const [query, setQuery] = useState("");
   const [selectedCollections, setSelectedCollections] = useState<string[]>([]);
-  const [topK, setTopK] = useState(5);
-  const [isSearching, setIsSearching] = useState(false);
-  const [results, setResults] = useState<SearchResult[] | undefined>(externalResults);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const toggleCollection = (id: string) => {
+  const handleSearch = useCallback(() => {
+    if (!query.trim()) return;
+    onSearch(
+      query.trim(),
+      selectedCollections.length ? selectedCollections : undefined
+    );
+  }, [query, selectedCollections, onSearch]);
+
+  const toggleCollection = useCallback((id: string) => {
     setSelectedCollections((prev) =>
       prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]
     );
-  };
-
-  const handleSearch = () => {
-    if (!query.trim()) return;
-    setIsSearching(true);
-
-    if (onSearch) {
-      onSearch(query, selectedCollections, topK);
-    }
-
-    // Simulate search delay for demo
-    setTimeout(() => {
-      setResults(externalResults);
-      setIsSearching(false);
-    }, 800);
-  };
+  }, []);
 
   return (
-    <Card className={cn("dark:bg-zinc-900/50 bg-white", className)}>
-      <CardHeader className="p-4 pb-0">
-        <CardTitle className="flex items-center gap-2 text-base text-zinc-900 dark:text-white">
-          <Sparkles className="h-4 w-4 text-indigo-500" />
-          Semantic Search
-        </CardTitle>
-      </CardHeader>
-
-      <CardContent className="p-4 space-y-4">
-        {/* Search input */}
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-              placeholder="Ask a question about your documents…"
-              className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 pl-10 pr-4 py-2.5 text-sm text-zinc-800 dark:text-zinc-200 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-colors"
-            />
-          </div>
-          <button
-            onClick={handleSearch}
-            disabled={!query.trim() || isSearching}
-            className="rounded-lg bg-indigo-500 hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2.5 text-sm font-medium transition-colors flex items-center gap-1.5 shrink-0"
-          >
-            {isSearching ? (
-              <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : (
-              <ArrowRight className="h-4 w-4" />
-            )}
-            Search
-          </button>
+    <div className={cn("space-y-4", className)}>
+      {/* Search input */}
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+            placeholder="Search your documents with natural language…"
+            className="pl-10 dark:bg-zinc-900/50 dark:border-zinc-700"
+          />
         </div>
+        <Button onClick={handleSearch} disabled={isSearching || !query.trim()}>
+          {isSearching ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Sparkles className="h-4 w-4" />
+          )}
+        </Button>
+      </div>
 
-        {/* Collection filter */}
-        <div className="flex flex-wrap gap-2">
-          {collections.map((col) => {
-            const isSelected = selectedCollections.includes(col.id);
+      {/* Collection filters */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1">
+        <span className="text-[10px] uppercase tracking-wider text-zinc-400 shrink-0">
+          Filter:
+        </span>
+        {collections.map((col) => (
+          <button
+            key={col.id}
+            onClick={() => toggleCollection(col.id)}
+            className={cn(
+              "shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors border",
+              selectedCollections.includes(col.id)
+                ? "bg-indigo-500/10 border-indigo-500/30 text-indigo-400"
+                : "border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+            )}
+          >
+            {col.name}
+          </button>
+        ))}
+      </div>
+
+      {/* Results */}
+      {results.length > 0 ? (
+        <div className="space-y-3">
+          <p className="text-xs text-zinc-400">
+            {results.length} results • ranked by relevance
+          </p>
+          {results.map((result, index) => {
+            const isExpanded = expandedId === result.id;
             return (
-              <button
-                key={col.id}
-                onClick={() => toggleCollection(col.id)}
-                className={cn(
-                  "rounded-full px-3 py-1 text-xs font-medium transition-all duration-150",
-                  isSelected
-                    ? "bg-indigo-100 text-indigo-700 ring-1 ring-indigo-300 dark:bg-indigo-900/30 dark:text-indigo-300 dark:ring-indigo-700"
-                    : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
-                )}
+              <Card
+                key={result.id}
+                className="dark:bg-zinc-900/50 bg-white overflow-hidden transition-all"
               >
-                {col.name}
-                <span className="ml-1 opacity-60">{col.document_count}</span>
-              </button>
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-3">
+                    {/* Rank */}
+                    <span className="shrink-0 flex h-6 w-6 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800 text-[10px] font-bold text-zinc-500">
+                      {index + 1}
+                    </span>
+
+                    <div className="min-w-0 flex-1">
+                      {/* Header */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex items-center gap-1.5">
+                          <FileText className="h-3.5 w-3.5 text-zinc-400" />
+                          <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                            {result.documentName}
+                          </span>
+                        </div>
+                        <Badge
+                          variant="secondary"
+                          className="text-[10px] dark:bg-zinc-800 dark:text-zinc-400"
+                        >
+                          {result.collectionName}
+                        </Badge>
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "text-[10px] font-mono",
+                            scoreBg(result.score),
+                            scoreColor(result.score)
+                          )}
+                        >
+                          {(result.score * 100).toFixed(0)}% match
+                        </Badge>
+                      </div>
+
+                      {/* Content preview */}
+                      <p
+                        className={cn(
+                          "mt-2 text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed",
+                          !isExpanded && "line-clamp-2"
+                        )}
+                      >
+                        {result.content}
+                      </p>
+
+                      {/* Metadata + expand */}
+                      <div className="mt-2 flex items-center gap-3">
+                        <span className="text-[10px] text-zinc-400">
+                          Chunk #{result.chunkIndex}
+                        </span>
+                        {Object.entries(result.metadata)
+                          .slice(0, 3)
+                          .map(([key, val]) => (
+                            <span
+                              key={key}
+                              className="text-[10px] text-zinc-400"
+                            >
+                              {key}: {val}
+                            </span>
+                          ))}
+                        <button
+                          onClick={() =>
+                            setExpandedId(isExpanded ? null : result.id)
+                          }
+                          className="ml-auto flex items-center gap-1 text-[10px] text-indigo-400 hover:text-indigo-300 transition-colors"
+                        >
+                          {isExpanded ? (
+                            <>
+                              Less <ChevronUp className="h-3 w-3" />
+                            </>
+                          ) : (
+                            <>
+                              More <ChevronDown className="h-3 w-3" />
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             );
           })}
         </div>
-
-        {/* Top-K slider */}
-        <div className="flex items-center gap-3 text-xs text-zinc-500 dark:text-zinc-400">
-          <label htmlFor="topk">Results:</label>
-          <input
-            id="topk"
-            type="range"
-            min={1}
-            max={20}
-            value={topK}
-            onChange={(e) => setTopK(Number(e.target.value))}
-            className="flex-1 accent-indigo-500"
-          />
-          <span className="font-mono w-6 text-right">{topK}</span>
+      ) : query && !isSearching ? (
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <Search className="h-8 w-8 text-zinc-300 dark:text-zinc-600 mb-3" />
+          <p className="text-sm text-zinc-500">No results found</p>
+          <p className="mt-1 text-xs text-zinc-400">
+            Try different keywords or broaden your collection filters
+          </p>
         </div>
-
-        {/* Results */}
-        {results && results.length > 0 && (
-          <div className="space-y-2">
-            <h4 className="text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-              {results.length} results
-            </h4>
-            {results.map((result, i) => (
-              <div
-                key={result.id}
-                className="rounded-lg border border-zinc-200 dark:border-zinc-800 p-3 space-y-2 bg-white dark:bg-zinc-900/50 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-xs font-mono text-zinc-400 shrink-0">
-                      #{i + 1}
-                    </span>
-                    <FileText className="h-4 w-4 text-zinc-400 shrink-0" />
-                    <span className="text-xs font-medium text-zinc-600 dark:text-zinc-300 truncate">
-                      {result.document_name}
-                    </span>
-                    <span className="text-[10px] text-zinc-400">
-                      chunk {result.chunk_index}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <div className="h-1.5 w-12 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
-                      <div
-                        className={cn("h-full rounded-full", similarityBg(result.similarity))}
-                        style={{ width: `${result.similarity * 100}%` }}
-                      />
-                    </div>
-                    <span
-                      className={cn(
-                        "text-xs font-mono font-medium",
-                        similarityColor(result.similarity)
-                      )}
-                    >
-                      {(result.similarity * 100).toFixed(0)}%
-                    </span>
-                  </div>
-                </div>
-                <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
-                  {result.content}
-                </p>
-                <div className="text-[10px] text-zinc-400">
-                  {result.collection_name}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {results && results.length === 0 && (
-          <div className="text-center py-8">
-            <Search className="mx-auto h-8 w-8 text-zinc-300 dark:text-zinc-600 mb-2" />
-            <p className="text-sm text-zinc-400 dark:text-zinc-500">
-              No matching documents found
-            </p>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+      ) : !query ? (
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <Sparkles className="h-8 w-8 text-zinc-300 dark:text-zinc-600 mb-3" />
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">
+            Search across your document collections
+          </p>
+          <p className="mt-1 text-xs text-zinc-400">
+            Uses vector embeddings for semantic search — ask questions in natural
+            language
+          </p>
+        </div>
+      ) : null}
+    </div>
   );
 }
