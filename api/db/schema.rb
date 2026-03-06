@@ -10,9 +10,75 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_04_153137) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_06_100003) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
+  enable_extension "vector"
+
+  create_table "active_storage_attachments", force: :cascade do |t|
+    t.bigint "blob_id", null: false
+    t.datetime "created_at", null: false
+    t.string "name", null: false
+    t.bigint "record_id", null: false
+    t.string "record_type", null: false
+    t.index ["blob_id"], name: "index_active_storage_attachments_on_blob_id"
+    t.index ["record_type", "record_id", "name", "blob_id"], name: "index_active_storage_attachments_uniqueness", unique: true
+  end
+
+  create_table "active_storage_blobs", force: :cascade do |t|
+    t.bigint "byte_size", null: false
+    t.string "checksum"
+    t.string "content_type"
+    t.datetime "created_at", null: false
+    t.string "filename", null: false
+    t.string "key", null: false
+    t.text "metadata"
+    t.string "service_name", null: false
+    t.index ["key"], name: "index_active_storage_blobs_on_key", unique: true
+  end
+
+  create_table "active_storage_variant_records", force: :cascade do |t|
+    t.bigint "blob_id", null: false
+    t.string "variation_digest", null: false
+    t.index ["blob_id", "variation_digest"], name: "index_active_storage_variant_records_uniqueness", unique: true
+  end
+
+  create_table "article_chunks", force: :cascade do |t|
+    t.bigint "article_id", null: false
+    t.integer "chunk_index", null: false
+    t.text "chunk_text", null: false
+    t.datetime "created_at", null: false
+    t.vector "embedding", limit: 768
+    t.tsvector "searchable"
+    t.datetime "updated_at", null: false
+    t.index ["article_id", "chunk_index"], name: "index_article_chunks_on_article_id_and_chunk_index", unique: true
+    t.index ["article_id"], name: "index_article_chunks_on_article_id"
+    t.index ["embedding"], name: "index_article_chunks_on_embedding", opclass: :vector_cosine_ops, using: :hnsw
+    t.index ["searchable"], name: "index_article_chunks_on_searchable", using: :gin
+  end
+
+  create_table "articles", force: :cascade do |t|
+    t.text "body", null: false
+    t.datetime "created_at", null: false
+    t.datetime "published_at"
+    t.string "title", null: false
+    t.datetime "updated_at", null: false
+    t.index ["published_at"], name: "index_articles_on_published_at"
+  end
+
+  create_table "audio_segments", force: :cascade do |t|
+    t.binary "content", null: false
+    t.datetime "created_at", null: false
+    t.float "duration"
+    t.integer "sequence_number"
+    t.string "speaker", null: false
+    t.text "transcript"
+    t.datetime "updated_at", null: false
+    t.bigint "voice_session_id", null: false
+    t.index ["speaker"], name: "index_audio_segments_on_speaker"
+    t.index ["voice_session_id", "sequence_number"], name: "index_audio_segments_on_voice_session_id_and_sequence_number"
+    t.index ["voice_session_id"], name: "index_audio_segments_on_voice_session_id"
+  end
 
   create_table "chats", force: :cascade do |t|
     t.string "agent_class", null: false
@@ -23,6 +89,53 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_04_153137) do
     t.bigint "user_id"
     t.index ["agent_class"], name: "index_chats_on_agent_class"
     t.index ["user_id"], name: "index_chats_on_user_id"
+  end
+
+  create_table "chunks", force: :cascade do |t|
+    t.text "content", null: false
+    t.datetime "created_at", null: false
+    t.bigint "document_id", null: false
+    t.integer "position", default: 0, null: false
+    t.integer "token_count", default: 0
+    t.datetime "updated_at", null: false
+    t.index ["document_id", "position"], name: "index_chunks_on_document_id_and_position"
+    t.index ["document_id"], name: "index_chunks_on_document_id"
+  end
+
+  create_table "document_collections", force: :cascade do |t|
+    t.integer "chunk_overlap", default: 50, null: false
+    t.integer "chunk_size", default: 512, null: false
+    t.string "chunking_strategy", default: "paragraph", null: false
+    t.datetime "created_at", null: false
+    t.string "embedding_model", default: "text-embedding-3-small", null: false
+    t.jsonb "metadata", default: {}
+    t.string "name", null: false
+    t.datetime "updated_at", null: false
+    t.index ["name"], name: "index_document_collections_on_name", unique: true
+  end
+
+  create_table "documents", force: :cascade do |t|
+    t.string "content_type"
+    t.datetime "created_at", null: false
+    t.bigint "document_collection_id", null: false
+    t.text "error_message"
+    t.string "name", null: false
+    t.bigint "size"
+    t.string "status", default: "processing", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "user_id"
+    t.index ["document_collection_id"], name: "index_documents_on_document_collection_id"
+    t.index ["status"], name: "index_documents_on_status"
+    t.index ["user_id"], name: "index_documents_on_user_id"
+  end
+
+  create_table "embeddings", force: :cascade do |t|
+    t.bigint "chunk_id", null: false
+    t.datetime "created_at", null: false
+    t.string "model_used", default: "text-embedding-3-small", null: false
+    t.datetime "updated_at", null: false
+    t.vector "vector", limit: 1536
+    t.index ["chunk_id"], name: "index_embeddings_on_chunk_id", unique: true
   end
 
   create_table "jwt_denylists", force: :cascade do |t|
@@ -114,8 +227,48 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_04_153137) do
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
   end
 
+  create_table "voice_presets", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.boolean "default", default: false
+    t.string "name", null: false
+    t.string "provider", default: "elevenlabs", null: false
+    t.jsonb "settings", default: {}
+    t.datetime "updated_at", null: false
+    t.string "voice_id", null: false
+    t.index ["name"], name: "index_voice_presets_on_name", unique: true
+    t.index ["provider"], name: "index_voice_presets_on_provider"
+  end
+
+  create_table "voice_sessions", force: :cascade do |t|
+    t.string "audio_format", default: "pcm_16000"
+    t.bigint "chat_id", null: false
+    t.datetime "created_at", null: false
+    t.integer "duration"
+    t.datetime "ended_at"
+    t.datetime "started_at", null: false
+    t.string "status", default: "active", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "user_id", null: false
+    t.bigint "voice_preset_id"
+    t.index ["chat_id"], name: "index_voice_sessions_on_chat_id"
+    t.index ["status"], name: "index_voice_sessions_on_status"
+    t.index ["user_id"], name: "index_voice_sessions_on_user_id"
+    t.index ["voice_preset_id"], name: "index_voice_sessions_on_voice_preset_id"
+  end
+
+  add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "article_chunks", "articles"
+  add_foreign_key "audio_segments", "voice_sessions"
   add_foreign_key "chats", "users"
+  add_foreign_key "chunks", "documents"
+  add_foreign_key "documents", "document_collections"
+  add_foreign_key "documents", "users"
+  add_foreign_key "embeddings", "chunks"
   add_foreign_key "messages", "chats"
   add_foreign_key "subscriptions", "plans"
   add_foreign_key "subscriptions", "users"
+  add_foreign_key "voice_sessions", "chats"
+  add_foreign_key "voice_sessions", "users"
+  add_foreign_key "voice_sessions", "voice_presets"
 end
