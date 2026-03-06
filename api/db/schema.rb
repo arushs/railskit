@@ -10,9 +10,10 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_04_153137) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_06_000000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
+  enable_extension "vector"
 
   create_table "chats", force: :cascade do |t|
     t.string "agent_class", null: false
@@ -23,6 +24,46 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_04_153137) do
     t.bigint "user_id"
     t.index ["agent_class"], name: "index_chats_on_agent_class"
     t.index ["user_id"], name: "index_chats_on_user_id"
+  end
+
+  create_table "chunks", force: :cascade do |t|
+    t.text "content", null: false
+    t.datetime "created_at", null: false
+    t.bigint "document_id", null: false
+    t.vector "embedding", limit: 768
+    t.jsonb "metadata", default: {}
+    t.integer "position", default: 0, null: false
+    t.tsvector "searchable"
+    t.datetime "updated_at", null: false
+    t.index ["document_id", "position"], name: "index_chunks_on_document_id_and_position", unique: true
+    t.index ["document_id"], name: "index_chunks_on_document_id"
+    t.index ["searchable"], name: "index_chunks_on_searchable", using: :gin
+  end
+
+  create_table "collections", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.jsonb "metadata", default: {}
+    t.string "name", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "user_id"
+    t.index ["name"], name: "index_collections_on_name", unique: true
+    t.index ["user_id"], name: "index_collections_on_user_id"
+  end
+
+  create_table "documents", force: :cascade do |t|
+    t.bigint "collection_id", null: false
+    t.datetime "created_at", null: false
+    t.text "error_message"
+    t.jsonb "metadata", default: {}
+    t.text "raw_content"
+    t.string "source_type", default: "text", null: false
+    t.text "source_url"
+    t.string "status", default: "pending", null: false
+    t.string "title", null: false
+    t.datetime "updated_at", null: false
+    t.index ["collection_id"], name: "index_documents_on_collection_id"
+    t.index ["status"], name: "index_documents_on_status"
   end
 
   create_table "jwt_denylists", force: :cascade do |t|
@@ -115,6 +156,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_04_153137) do
   end
 
   add_foreign_key "chats", "users"
+  add_foreign_key "chunks", "documents"
+  add_foreign_key "collections", "users"
+  add_foreign_key "documents", "collections"
   add_foreign_key "messages", "chats"
   add_foreign_key "subscriptions", "plans"
   add_foreign_key "subscriptions", "users"

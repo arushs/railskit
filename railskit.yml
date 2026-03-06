@@ -21,6 +21,12 @@ ai:
   provider: "openai"  # openai | anthropic | google | ollama
   model: "gpt-4o"
 
+rag:
+  embedding_provider: "fireworks"  # fireworks | openai | ollama
+  embedding_model: "nomic-ai/nomic-embed-text-v1.5"  # Nomic v1.5 on Fireworks (768d)
+  chunk_size: 512       # tokens per chunk
+  overlap: 64           # token overlap between chunks
+
 theme:
   primary_color: "#6366f1"
   dark_mode: true
