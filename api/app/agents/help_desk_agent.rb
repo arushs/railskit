@@ -2,6 +2,13 @@
 
 class HelpDeskAgent
   include RubyLLM::Agent
+  include StructuredOutput
+  include AsTool
+  include Handoff
+
+  tool_name "help_desk"
+  tool_description "Handles general support questions, ticket lookups, and knowledge base searches."
+  tool_param :message, type: :string, desc: "The user's support question", required: true
 
   configure do |config|
     config.tools = [KnowledgeBaseSearch, CreateSupportTicket, SendFollowUpEmail]

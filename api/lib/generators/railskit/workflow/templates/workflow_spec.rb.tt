@@ -1,0 +1,29 @@
+# frozen_string_literal: true
+
+require "rails_helper"
+
+RSpec.describe <%= workflow_class_name %> do
+  let(:conversation) { create(:chat) }
+
+  describe ".run" do
+    it "executes all steps" do
+      result = described_class.run(
+        message: "test message",
+        conversation: conversation
+      )
+
+      expect(result[:_steps_executed]).to be_present
+      expect(result[:_errors]).to be_empty
+    end
+<% workflow_steps.each do |step| %>
+    it "executes the :<%= step[:name] %> step" do
+      result = described_class.run(
+        message: "test message",
+        conversation: conversation
+      )
+
+      expect(result[:_steps_executed]).to include(:<%= step[:name] %>)
+    end
+<% end -%>
+  end
+end
