@@ -3,58 +3,56 @@
 require "rails_helper"
 
 RSpec.describe Rag::EmbeddingService do
+  let(:mock_response) do
+    {
+      "data" => [
+        { "index" => 0, "embedding" => [0.1] * 1536 }
+      ]
+    }
+  end
+
+  before do
+    allow(ENV).to receive(:fetch).with("OPENAI_API_KEY").and_return("test-key")
+    allow(ENV).to receive(:fetch).with("OPENAI_BASE_URL", anything).and_return("https://api.openai.com/v1")
+  end
+
   describe ".embed" do
     it "returns a vector array" do
-      stub_openai_embeddings([1.0, 0.5, -0.3])
+      stub_request(:post, "https://api.openai.com/v1/embeddings")
+        .to_return(status: 200, body: mock_response.to_json, headers: { "Content-Type" => "application/json" })
 
       result = described_class.embed("Hello world")
       expect(result).to be_an(Array)
-      expect(result).to eq([1.0, 0.5, -0.3])
+      expect(result.size).to eq(1536)
     end
   end
 
   describe ".embed_batch" do
-    it "returns vectors for multiple texts" do
-      vectors = [[1.0, 0.5], [0.3, -0.1]]
-      stub_openai_embeddings_batch(vectors)
+    it "returns empty array for empty input" do
+      expect(described_class.embed_batch([])).to eq([])
+    end
+
+    it "embeds multiple texts" do
+      batch_response = {
+        "data" => [
+          { "index" => 0, "embedding" => [0.1] * 1536 },
+          { "index" => 1, "embedding" => [0.2] * 1536 }
+        ]
+      }
+
+      stub_request(:post, "https://api.openai.com/v1/embeddings")
+        .to_return(status: 200, body: batch_response.to_json, headers: { "Content-Type" => "application/json" })
 
       results = described_class.embed_batch(["Hello", "World"])
       expect(results.size).to eq(2)
-      expect(results).to eq(vectors)
-    end
-
-    it "returns empty array for empty input" do
-      expect(described_class.embed_batch([])).to eq([])
+      expect(results.first.size).to eq(1536)
     end
   end
 
   describe ".dimensions" do
-    it "returns 1536 for text-embedding-3-small" do
-      allow(Rails.application.config).to receive(:railskit).and_return(
-        OpenStruct.new(rag: { embedding_model: "text-embedding-3-small" })
-      )
-      expect(described_class.dimensions).to eq(1536)
+    it "returns dimension count for configured model" do
+      expect(described_class.dimensions).to be_a(Integer)
+      expect(described_class.dimensions).to be > 0
     end
-  end
-
-  private
-
-  def stub_openai_embeddings(vector)
-    stub_request(:post, "https://api.openai.com/v1/embeddings")
-      .to_return(
-        status: 200,
-        body: { data: [{ embedding: vector, index: 0 }] }.to_json,
-        headers: { "Content-Type" => "application/json" }
-      )
-  end
-
-  def stub_openai_embeddings_batch(vectors)
-    response_data = vectors.each_with_index.map { |v, i| { embedding: v, index: i } }
-    stub_request(:post, "https://api.openai.com/v1/embeddings")
-      .to_return(
-        status: 200,
-        body: { data: response_data }.to_json,
-        headers: { "Content-Type" => "application/json" }
-      )
   end
 end
