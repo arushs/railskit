@@ -13,7 +13,7 @@ module Rag
   #   - :hyde    — hypothetical document generation (HyDE)
   #   - :multi   — run both :lexical and :hyde, merge all candidate sets
   #
-  # And optional chunked reranking via RerankerService for position-aware
+  # And optional chunked reranking via Reranker for position-aware
   # score blending after initial retrieval.
   #
   # Usage:
@@ -79,12 +79,19 @@ module Rag
 
         # Phase 3: Chunked reranking (optional)
         if rerank && scored.length > 1
-          scored = RerankerService.rerank(
-            query: query,
-            candidates: scored,
-            limit: limit,
-            **rerank_options
-          )
+          # Hydrate once for reranker, then return reranked Results directly
+          hydrated = hydrate_results(scored)
+          reranked = Reranker.rerank(query, hydrated, limit: limit, **rerank_options)
+          return reranked.first(limit).map do |r|
+            Result.new(
+              chunk: r.chunk,
+              score: r.score,
+              document_title: r.document_title,
+              collection_name: r.collection_name,
+              vector_rank: nil,
+              lexical_rank: nil
+            )
+          end
         end
 
         top = scored.first(limit)
