@@ -6,14 +6,29 @@ class KnowledgeSearchTool < RubyLLM::Tool
   param :limit, type: :integer, desc: "Max results (default: 3)"
 
   def execute(query:, limit: 3)
-    # Replace with: Article.search(query).limit(limit)
-    { query: query, results: [
-      { title: "How to Reset Your Password", url: "/help/reset-password",
-        excerpt: "Go to Settings > Security > Reset Password." },
-      { title: "Billing FAQ", url: "/help/billing-faq",
-        excerpt: "Invoices are generated on the 1st of each month." },
-      { title: "Getting Started Guide", url: "/help/getting-started",
-        excerpt: "This guide walks you through setup." }
-    ].first(limit) }
+    results = HybridSearchService.new.search(query, limit: limit)
+
+    formatted = results.map do |r|
+      {
+        title: r[:article_title],
+        url: r[:url] || "/articles/#{r[:article_id]}",
+        excerpt: truncate_text(r[:chunk_text], 200),
+        score: r[:blended_score] || r[:rrf_score]
+      }
+    end
+
+    { query: query, results: formatted }
+  rescue => e
+    Rails.logger.error("[KnowledgeSearchTool] Search failed: #{e.message}")
+    { query: query, results: [], error: "Search temporarily unavailable" }
+  end
+
+  private
+
+  def truncate_text(text, max_length)
+    return "" if text.blank?
+    return text if text.length <= max_length
+
+    text[0, max_length].sub(/\s+\S*\z/, "") + "..."
   end
 end

@@ -22,19 +22,37 @@ class HybridSearchService
 
   attr_reader :k
 
-  def initialize(k: DEFAULT_K)
+  def initialize(k: DEFAULT_K, query_expander: nil, reranker: nil)
     @k = k
+    @query_expander = query_expander
+    @reranker = reranker
   end
 
-  # Full hybrid search pipeline.
+  # Full hybrid search pipeline with query expansion and reranking.
   # Returns Array of Hashes:
   #   { chunk_id:, chunk_text:, article_id:, article_title:, published_at:,
-  #     rrf_score:, keyword_rank:, vector_rank:, recency_rank: }
+  #     url:, rrf_score:, keyword_rank:, vector_rank:, recency_rank:,
+  #     reranker_score:, blended_score: }
   def search(query, limit: 10)
-    keyword_results  = keyword_search(query)
-    vector_results   = vector_search(query)
-    recency_results  = recency_search(query)
+    # Phase 1: Query expansion
+    expansion = query_expander.expand(query)
+    all_keyword_queries = [query] + expansion[:lex]
+    all_vector_queries  = [query] + expansion[:vec] + expansion[:hyde]
 
+    # Phase 2: Multi-query retrieval
+    keyword_results = all_keyword_queries.flat_map { |q| keyword_search(q) }
+      .uniq { |r| r[:chunk_id] }
+      .sort_by { |r| -r[:score] }
+      .first(30)
+
+    vector_results = all_vector_queries.flat_map { |q| vector_search(q) }
+      .uniq { |r| r[:chunk_id] }
+      .sort_by { |r| r[:distance] }
+      .first(30)
+
+    recency_results = recency_search(query)
+
+    # Phase 3: RRF fusion
     ranked_lists = [
       keyword_results.map { |r| r[:chunk_id] },
       vector_results.map { |r| r[:chunk_id] },
@@ -48,10 +66,12 @@ class HybridSearchService
     vector_rank_map  = build_rank_map(vector_results.map { |r| r[:chunk_id] })
     recency_rank_map = build_rank_map(recency_results.map { |r| r[:chunk_id] })
 
-    chunk_ids = fused.first(limit).map { |r| r[:chunk_id] }
+    # Hydrate fused results with chunk data
+    candidate_limit = [limit * 2, fused.length].min
+    chunk_ids = fused.first(candidate_limit).map { |r| r[:chunk_id] }
     chunks = ArticleChunk.includes(:article).where(id: chunk_ids).index_by(&:id)
 
-    fused.first(limit).filter_map do |result|
+    rrf_results = fused.first(candidate_limit).filter_map do |result|
       chunk = chunks[result[:chunk_id]]
       next unless chunk
 
@@ -61,12 +81,18 @@ class HybridSearchService
         article_id: chunk.article_id,
         article_title: chunk.article.title,
         published_at: chunk.article.published_at,
+        url: chunk.article.try(:url),
         rrf_score: result[:score],
         keyword_rank: keyword_rank_map[chunk.id],
         vector_rank: vector_rank_map[chunk.id],
         recency_rank: recency_rank_map[chunk.id]
       }
     end
+
+    # Phase 4: Chunked reranking
+    reranked = reranker.rerank(query: query, rrf_results: rrf_results)
+
+    reranked.first(limit)
   end
 
   # Full-text keyword search using PostgreSQL tsvector/ts_rank.
@@ -164,6 +190,14 @@ class HybridSearchService
   end
 
   private
+
+  def query_expander
+    @query_expander ||= QueryExpander.new
+  end
+
+  def reranker
+    @reranker ||= Reranker.new
+  end
 
   # Build a hash of { id => 1-indexed rank } from an ordered array of ids.
   def build_rank_map(ids)
