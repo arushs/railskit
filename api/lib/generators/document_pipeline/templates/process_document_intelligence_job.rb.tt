@@ -1,0 +1,13 @@
+# frozen_string_literal: true
+
+class ProcessDocumentIntelligenceJob < ApplicationJob
+  queue_as :default
+  retry_on StandardError, wait: :polynomially_longer, attempts: 3
+
+  def perform(processed_document_id)
+    doc = ProcessedDocument.find(processed_document_id)
+    return if doc.status == "completed"
+
+    doc.process!
+  end
+end
