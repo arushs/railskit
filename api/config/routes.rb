@@ -59,7 +59,7 @@ Rails.application.routes.draw do
     # Global document search (across all collections)
     post "search", to: "search#create"
 
-    # Admin
+# Admin
     namespace :admin do
       get "stats", to: "/api/admin#stats"
       get "users", to: "/api/admin#users"
@@ -74,6 +74,12 @@ Rails.application.routes.draw do
       post "queues/bulk_discard", to: "/api/admin#bulk_discard"
       get "pghero", to: "/api/admin#pghero"
     end
+# Teams
+    resources :teams do
+      resources :memberships, only: %i[index update destroy]
+      resources :invitations, controller: "team_invitations", only: %i[index create destroy]
+    end
+    post "invitations/:token/accept", to: "team_invitations#accept"
 
     # Voice sessions
     resources :voice_sessions, only: %i[index show create destroy]

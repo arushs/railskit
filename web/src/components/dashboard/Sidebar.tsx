@@ -5,7 +5,8 @@ import {
   CreditCard,
   LogOut,
   X,
-  ShieldCheck,
+ShieldCheck,
+Users,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Avatar } from "@/components/ui/avatar";
@@ -15,6 +16,7 @@ import { cn } from "@/lib/utils";
 
 const baseNavItems = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+  { to: "/teams", icon: Users, label: "Teams" },
   { to: "/dashboard/settings", icon: Settings, label: "Settings" },
   { to: "/dashboard/billing", icon: CreditCard, label: "Billing" },
 ];
