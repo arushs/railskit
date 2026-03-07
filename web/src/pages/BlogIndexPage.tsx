@@ -1,27 +1,26 @@
-import { useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import SEO from "@/components/seo/SEO";
 import { breadcrumbJsonLd } from "@/components/seo/structured-data";
-import { sortedPosts, BLOG_CATEGORIES } from "@/content/blog";
+import { getAllPosts, getAllCategories } from "@/lib/blog";
 import { Rss } from "lucide-react";
 
 export default function BlogIndexPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeCategory = searchParams.get("category") || "all";
+  const activeCategory = searchParams.get("category");
   const activeTag = searchParams.get("tag") || null;
 
-  const filtered = sortedPosts.filter((post) => {
-    if (activeCategory !== "all" && post.category !== activeCategory) return false;
-    if (activeTag && !post.tags.includes(activeTag)) return false;
+  const allPosts = getAllPosts();
+  const categories = getAllCategories();
+
+  const posts = allPosts.filter((p) => {
+    if (activeCategory && p.category !== activeCategory) return false;
+    if (activeTag && !p.tags.includes(activeTag)) return false;
     return true;
   });
 
-  function setCategory(cat: string) {
-    const params = new URLSearchParams(searchParams);
-    if (cat === "all") params.delete("category");
-    else params.set("category", cat);
-    setSearchParams(params);
-  }
+  const activeCategoryName = categories.find(
+    (c) => c.slug === activeCategory
+  )?.name;
 
   function setTag(tag: string | null) {
     const params = new URLSearchParams(searchParams);
@@ -33,12 +32,15 @@ export default function BlogIndexPage() {
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
       <SEO
-        title="Blog"
+        title={activeCategoryName ? `${activeCategoryName} — Blog` : "Blog"}
         description="Guides, tutorials, and insights on building AI-powered Rails applications with RailsKit."
-        canonical="/blog"
+        canonical={activeCategory ? `/blog?category=${activeCategory}` : "/blog"}
         jsonLd={breadcrumbJsonLd([
           { name: "Home", url: "/" },
           { name: "Blog", url: "/blog" },
+          ...(activeCategoryName
+            ? [{ name: activeCategoryName, url: `/blog?category=${activeCategory}` }]
+            : []),
         ])}
       />
 
@@ -59,34 +61,42 @@ export default function BlogIndexPage() {
       </header>
 
       <main className="mx-auto max-w-3xl px-6 py-16">
-        <h1 className="text-4xl font-bold tracking-tight">Blog</h1>
+        <h1 className="text-4xl font-bold tracking-tight">
+          {activeCategoryName ? activeCategoryName : "Blog"}
+        </h1>
         <p className="mt-3 text-lg text-zinc-400">
-          Guides, tutorials, and opinions on shipping AI-powered Rails apps.
+          {activeCategoryName
+            ? categories.find((c) => c.slug === activeCategory)?.description
+            : "Guides, tutorials, and opinions on shipping AI-powered Rails apps."}
         </p>
 
-        {/* Category filters */}
+        {/* Category filter pills */}
         <div className="mt-8 flex flex-wrap gap-2">
           <button
-            onClick={() => setCategory("all")}
-            className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${
-              activeCategory === "all"
+            onClick={() => {
+              const params = new URLSearchParams(searchParams);
+              params.delete("category");
+              setSearchParams(params);
+            }}
+            className={`rounded-full px-3 py-1.5 text-sm border transition-colors ${
+              !activeCategory
                 ? "bg-white text-zinc-900 border-white"
                 : "border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500"
             }`}
           >
-            All
+            All ({allPosts.length})
           </button>
-          {BLOG_CATEGORIES.map((cat) => (
+          {categories.map((cat) => (
             <button
-              key={cat}
-              onClick={() => setCategory(cat)}
-              className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${
-                activeCategory === cat
+              key={cat.slug}
+              onClick={() => setSearchParams({ category: cat.slug })}
+              className={`rounded-full px-3 py-1.5 text-sm border transition-colors ${
+                activeCategory === cat.slug
                   ? "bg-white text-zinc-900 border-white"
                   : "border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500"
               }`}
             >
-              {cat}
+              {cat.name} ({cat.count})
             </button>
           ))}
         </div>
@@ -105,24 +115,22 @@ export default function BlogIndexPage() {
           </div>
         )}
 
-        {/* Posts */}
+        {/* Post list */}
         <div className="mt-10 space-y-10">
-          {filtered.length === 0 ? (
+          {posts.length === 0 ? (
             <p className="text-zinc-500 py-8 text-center">No posts found for this filter.</p>
           ) : (
-            filtered.map((post) => (
+            posts.map((post) => (
               <article key={post.slug} className="group">
                 <Link to={`/blog/${post.slug}`} className="block">
-                  <div className="flex items-center gap-3 text-sm">
-                    <time className="text-zinc-500">{post.date}</time>
+                  <div className="flex items-center gap-2 text-sm text-zinc-500">
+                    <time>{post.date}</time>
                     <span className="text-zinc-700">·</span>
-                    <span className="text-zinc-500">{post.category}</span>
-                    {post.featured && (
-                      <>
-                        <span className="text-zinc-700">·</span>
-                        <span className="text-amber-400 text-xs font-medium">Featured</span>
-                      </>
-                    )}
+                    <span>{post.readingTime} min read</span>
+                    <span className="text-zinc-700">·</span>
+                    <span className="text-indigo-400/70">{
+                      categories.find((c) => c.slug === post.category)?.name ?? post.category
+                    }</span>
                   </div>
                   <h2 className="mt-2 text-xl font-semibold group-hover:text-indigo-400 transition">
                     {post.title}

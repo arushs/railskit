@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+    <channel>
+        <title>RailsKit Blog</title>
+        <link>https://railskit.dev</link>
+        <description>Guides, tutorials, and insights on building AI-powered Rails applications with RailsKit.</description>
+        <lastBuildDate>Fri, 06 Mar 2026 22:08:36 GMT</lastBuildDate>
+        <docs>https://validator.w3.org/feed/docs/rss2.html</docs>
+        <generator>https://github.com/jpmonette/feed</generator>
+        <language>en</language>
+        <image>
+            <title>RailsKit Blog</title>
+            <url>https://railskit.dev/logo.png</url>
+            <link>https://railskit.dev</link>
+        </image>
+        <copyright>© 2026 RailsKit</copyright>
+        <category>guides</category>
+        <category>opinions</category>
+        <item>
+            <title><![CDATA[Building a RAG Pipeline with RailsKit]]></title>
+            <link>https://railskit.dev/blog/rag-pipeline-guide</link>
+            <guid isPermaLink="false">https://railskit.dev/blog/rag-pipeline-guide</guid>
+            <pubDate>Fri, 06 Mar 2026 00:00:00 GMT</pubDate>
+            <description><![CDATA[How to add document intelligence to your Rails app with pgvector, embeddings, and hybrid search.]]></description>
+            <content:encoded><![CDATA[
+# Building a RAG Pipeline with RailsKit
+
+Retrieval-Augmented Generation (RAG) lets your AI agents answer questions grounded in your own data. RailsKit ships with a complete RAG pipeline — here's how it works.
+
+## Architecture
+
+```
+Document Upload → Content Extraction → Chunking → Embedding → pgvector
+                                                                  ↓
+User Query → Query Expansion → Hybrid Search (BM25 + Vector) → Reranking → LLM
+```
+
+## Step 1: Enable pgvector
+
+RailsKit uses the `neighbor` gem for pgvector integration. The migration is already included:
+
+```ruby
+class EnablePgvector < ActiveRecord::Migration[8.0]
+  def change
+    enable_extension "vector"
+  end
+end
+```
+
+## Step 2: Upload Documents
+
+Documents go through an async processing pipeline:
+
+```ruby
+document = collection.documents.create!(
+  title: "Q3 Report",
+  file: uploaded_file
+)
+# Triggers: extract → chunk → embed (all async)
+```
+
+## Step 3: Search
+
+The hybrid search combines BM25 keyword matching with vector similarity:
+
+```ruby
+results = HybridSearchService.new(collection).search(
+  "What were Q3 revenue figures?",
+  limit: 5,
+  expand: true,   # LLM query expansion
+  rerank: true     # Cross-encoder reranking
+)
+```
+
+## Step 4: Wire into Agents
+
+The `KnowledgeSearchTool` wraps search as a tool your agents can call:
+
+```ruby
+agent = RubyLLM.agent(tools: [KnowledgeSearchTool])
+agent.chat("Based on our Q3 report, what was the revenue trend?")
+```
+
+The agent automatically searches relevant documents and grounds its response in your data.
+
+## What's Next
+
+- **Multi-tenant collections** — each team gets isolated document stores
+- **Incremental re-embedding** — only re-process changed chunks
+- **Citation tracking** — link agent responses back to source documents
+]]></content:encoded>
+            <author>RailsKit Team</author>
+            <category>rag</category>
+            <category>embeddings</category>
+            <category>pgvector</category>
+            <category>tutorial</category>
+            <enclosure url="https://railskit.dev/images/blog/rag-pipeline.jpg" length="0" type="image/jpg"/>
+        </item>
+        <item>
+            <title><![CDATA[Getting Started with RailsKit]]></title>
+            <link>https://railskit.dev/blog/getting-started</link>
+            <guid isPermaLink="false">https://railskit.dev/blog/getting-started</guid>
+            <pubDate>Wed, 04 Mar 2026 00:00:00 GMT</pubDate>
+            <description><![CDATA[A quick guide to setting up RailsKit and shipping your first AI-powered Rails app.]]></description>
+            <content:encoded><![CDATA[
+# Getting Started with RailsKit
+
+Welcome to RailsKit — the fastest way to ship AI-powered Rails applications.
+
+## Prerequisites
+
+- Ruby 3.3+
+- Node.js 22+
+- PostgreSQL 16+
+
+## Quick Start
+
+```bash
+git clone https://github.com/arushs/railskit.git my-app
+cd my-app
+bin/setup
+bin/dev
+```
+
+That's it. You now have:
+
+- A Rails 8 API backend with authentication, billing, and real-time WebSockets
+- A React 19 frontend with TailwindCSS, dark mode, and SEO
+- AI agent infrastructure with tool use and streaming
+- Deployment configs for Fly.io, Render, and Docker
+
+## Project Structure
+
+```
+railskit/
+├── api/           # Rails 8 API backend
+├── web/           # React 19 frontend
+├── railskit.yml   # Unified configuration
+└── bin/           # Setup & dev scripts
+```
+
+## What's Included
+
+### Authentication
+Email/password, OAuth (Google, GitHub), magic links, and JWT sessions — all pre-wired with Devise.
+
+### Billing
+Stripe integration with plans, subscriptions, and a customer portal. Swap in LemonSqueezy with one config change.
+
+### AI Agents
+RubyLLM-powered agents with tool use, streaming responses, and multi-agent orchestration.
+
+### Deployment
+One-command deploys to Fly.io or Render. Docker and Kamal configs included.
+
+## Next Steps
+
+1. Customize `railskit.yml` with your app name, API keys, and preferences
+2. Run `bin/dev` to start the development server
+3. Visit `http://localhost:5173` to see your app
+4. Read the [architecture guide](/blog/why-rails-for-ai) for a deeper understanding
+]]></content:encoded>
+            <author>RailsKit Team</author>
+            <category>guide</category>
+            <category>quickstart</category>
+            <category>setup</category>
+            <enclosure url="https://railskit.dev/images/blog/getting-started.jpg" length="0" type="image/jpg"/>
+        </item>
+        <item>
+            <title><![CDATA[Why Rails is Perfect for AI Applications]]></title>
+            <link>https://railskit.dev/blog/why-rails-for-ai</link>
+            <guid isPermaLink="false">https://railskit.dev/blog/why-rails-for-ai</guid>
+            <pubDate>Wed, 04 Mar 2026 00:00:00 GMT</pubDate>
+            <description><![CDATA[Rails brings rapid full-stack development to the AI ecosystem. Here's why it matters.]]></description>
+            <content:encoded><![CDATA[
+# Why Rails is Perfect for AI Applications
+
+The AI tooling ecosystem is dominated by Python. But when it comes to building **production applications** — not notebooks, not experiments, but real products people pay for — Rails has a compelling case.
+
+## The Full-Stack Advantage
+
+AI features don't exist in isolation. They need:
+
+- **Authentication** — who's making requests?
+- **Billing** — how do you charge for GPU time?
+- **Real-time updates** — streaming responses to the browser
+- **Background jobs** — async processing for long-running tasks
+- **Database** — storing conversations, documents, embeddings
+
+Rails gives you all of this out of the box. With Python, you're stitching together FastAPI + Celery + Redis + SQLAlchemy + Stripe + ... and hoping they play nice.
+
+## RubyLLM: The Missing Piece
+
+[RubyLLM](https://github.com/crmne/ruby_llm) brings a clean, Ruby-native interface to every major LLM provider:
+
+```ruby
+chat = RubyLLM.chat(model: "gpt-4o")
+response = chat.ask("Summarize this document", with: document)
+```
+
+Tool use, streaming, structured output, vision — it all works. And because it's Ruby, it integrates naturally with your Rails models, services, and background jobs.
+
+## ActionCable for Streaming
+
+LLM responses are inherently streaming. ActionCable gives you WebSocket support with zero additional infrastructure:
+
+```ruby
+class AgentChatChannel < ApplicationCable::Channel
+  def receive(data)
+    AgentStreamJob.perform_later(chat_id: data["chat_id"], message: data["message"])
+  end
+end
+```
+
+The frontend gets token-by-token updates over a persistent connection. No polling. No SSE hacks.
+
+## The Pragmatic Choice
+
+Rails isn't the trendy choice for AI. It's the *pragmatic* one. If you're building a product — not a demo — the fastest path to production is a framework that handles the boring stuff so you can focus on the interesting stuff.
+
+That's what RailsKit is: Rails handling the platform, so you can focus on the AI.
+]]></content:encoded>
+            <author>RailsKit Team</author>
+            <category>opinion</category>
+            <category>rails</category>
+            <category>ai</category>
+            <category>architecture</category>
+            <enclosure url="https://railskit.dev/images/blog/rails-ai.jpg" length="0" type="image/jpg"/>
+        </item>
+    </channel>
+</rss>

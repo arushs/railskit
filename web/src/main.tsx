@@ -28,6 +28,7 @@ import VoicePage from "./pages/dashboard/VoicePage";
 import RAGPage from "./pages/dashboard/RAGPage";
 import BlogIndexPage from "./pages/BlogIndexPage";
 import BlogPostPage from "./pages/BlogPostPage";
+import BlogCategoryPage from "./pages/BlogCategoryPage";
 import "./index.css";
 
 createRoot(document.getElementById("root")!).render(
@@ -73,6 +74,7 @@ createRoot(document.getElementById("root")!).render(
 
               {/* Blog */}
               <Route path="/blog" element={<BlogIndexPage />} />
+              <Route path="/blog/category/:category" element={<BlogCategoryPage />} />
               <Route path="/blog/:slug" element={<BlogPostPage />} />
             </Routes>
           </BrowserRouter>
