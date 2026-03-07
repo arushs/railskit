@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "tsc && vite build && tsx scripts/generate-rss.ts && tsx scripts/generate-sitemap.ts",
+    "build:rss": "tsx scripts/generate-rss.ts",
+    "build:sitemap": "tsx scripts/generate-sitemap.ts",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest"
