@@ -57,6 +57,9 @@ gem "pdf-reader", "~> 2.12"
 # JWT for ActionCable auth
 gem "jwt", "~> 2.9"
 
+# Database performance insights
+gem "pghero", "~> 3.6"
+
 # Inbound email processing
 gem "actionmailbox", "~> 8.1"
 

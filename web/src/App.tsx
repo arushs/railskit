@@ -9,6 +9,7 @@ import { OAuthCallbackPage } from "./pages/auth/OAuthCallbackPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import LandingPage from "./pages/LandingPage";
 import RagPage from "./pages/dashboard/RagPage";
+import AdminPage from "./pages/AdminPage";
 
 function App() {
   return (
@@ -29,6 +30,16 @@ function App() {
             element={
               <ProtectedRoute>
                 <DashboardPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Admin */}
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute>
+                <AdminPage />
               </ProtectedRoute>
             }
           />

@@ -50,6 +50,22 @@ Rails.application.routes.draw do
     # Global document search (across all collections)
     post "search", to: "search#create"
 
+    # Admin
+    namespace :admin do
+      get "stats", to: "/api/admin#stats"
+      get "users", to: "/api/admin#users"
+      patch "users/:id", to: "/api/admin#update_user"
+      delete "users/:id", to: "/api/admin#destroy_user"
+      get "teams", to: "/api/admin#teams"
+      delete "teams/:id", to: "/api/admin#destroy_team"
+      get "queues", to: "/api/admin#queues"
+      post "queues/:id/retry", to: "/api/admin#retry_job"
+      post "queues/:id/discard", to: "/api/admin#discard_job"
+      post "queues/bulk_retry", to: "/api/admin#bulk_retry"
+      post "queues/bulk_discard", to: "/api/admin#bulk_discard"
+      get "pghero", to: "/api/admin#pghero"
+    end
+
     # Voice sessions
     resources :voice_sessions, only: %i[index show create destroy]
 
