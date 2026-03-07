@@ -42,7 +42,7 @@ class AgentRouter
     def route(message, threshold: 1)
       return nil if registry.empty?
 
-      words = message.downcase.split(/\W+/).to_set
+      words = message.downcase.split(/\W+/).select { |w| w.length > 2 }.to_set
       scored = registry.map do |reg|
         hits = reg.capabilities.count { |cap| words.any? { |w| w.include?(cap) || cap.include?(w) } }
         [reg, hits]

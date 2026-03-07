@@ -9,7 +9,8 @@ RSpec.describe TransactionalMailer, type: :mailer do
     allow(RailsKit).to receive(:config).and_return(
       OpenStruct.new(
         app: OpenStruct.new(name: "TestApp", domain: "test.com"),
-        email: OpenStruct.new(provider: "resend", from: "TestApp <noreply@test.com>")
+        email: OpenStruct.new(provider: "resend", from: "TestApp <noreply@test.com>"),
+        theme: OpenStruct.new(primary_color: "#6366f1", dark_mode: true)
       )
     )
   end

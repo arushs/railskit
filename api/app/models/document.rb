@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 class Document < ApplicationRecord
+  alias_attribute :file_size, :size
+
   belongs_to :collection, counter_cache: true
   has_many :chunks, dependent: :destroy
 

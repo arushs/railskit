@@ -1,10 +1,9 @@
 # frozen_string_literal: true
 
 class Message < ApplicationRecord
-  belongs_to :chat, optional: true, inverse_of: :messages
+  belongs_to :chat, inverse_of: :messages
 
   validates :role, presence: true, inclusion: { in: %w[system user assistant tool] }
-  validate :must_belong_to_chat
 
   scope :by_role, ->(role) { where(role: role) }
   scope :recent, ->(n = 10) { order(created_at: :desc).limit(n) }
@@ -15,10 +14,4 @@ class Message < ApplicationRecord
   end
 
   private
-
-  def must_belong_to_chat
-    return if chat_id.present?
-
-    errors.add(:base, "Message must belong to a chat")
-  end
 end

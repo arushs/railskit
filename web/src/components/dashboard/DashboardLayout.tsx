@@ -1,4 +1,4 @@
-import { Link, useLocation } from "react-router";
+import { Link, Outlet, useLocation } from "react-router";
 import { cn } from "@/lib/utils";
 import { MessageSquare, DollarSign, Wrench, LayoutDashboard, ArrowLeft } from "lucide-react";
 
@@ -7,9 +7,9 @@ const navItems = [
   { to: "/dashboard/chats", label: "Chats", icon: MessageSquare },
   { to: "/dashboard/costs", label: "Costs", icon: DollarSign },
   { to: "/dashboard/tools", label: "Tools", icon: Wrench },
-];
+] as const;
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default function DashboardLayout({ children }: { children?: React.ReactNode } = {}) {
   const location = useLocation();
   function isActive(to: string, end?: boolean) {
     if (end) return location.pathname === to;
@@ -43,7 +43,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </nav>
         </div>
       </header>
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">{children}</main>
+      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">{children || <Outlet />}</main>
     </div>
   );
 }

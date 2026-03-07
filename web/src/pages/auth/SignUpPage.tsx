@@ -86,7 +86,7 @@ export function SignUpPage() {
 
         <p className="text-center text-sm text-zinc-500">
           Already have an account?{" "}
-          <Link to="/auth/sign-in" className="text-white hover:underline">Sign in</Link>
+          <Link to="/login" className="text-white hover:underline">Sign in</Link>
         </p>
       </div>
     </div>

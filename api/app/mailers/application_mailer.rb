@@ -6,7 +6,7 @@ class ApplicationMailer < ActionMailer::Base
 
   private
 
-  def self.default_from_address
+  def default_from_address
     app_name = RailsKit.config.app.name
     domain   = RailsKit.config.app.domain
 
@@ -23,5 +23,22 @@ class ApplicationMailer < ActionMailer::Base
   # Helper available to all mailers — sets consistent subject prefix.
   def branded_subject(text)
     "[#{RailsKit.config.app.name}] #{text}"
+  end
+
+  # Frontend URL helpers for mailer templates.
+  def frontend_url
+    @frontend_url ||= ENV.fetch("FRONTEND_URL", "http://localhost:5173")
+  end
+
+  def magic_link_url(token:)
+    "#{frontend_url}/auth/magic-link/verify?token=#{token}"
+  end
+
+  def password_reset_url(token:)
+    "#{frontend_url}/auth/reset-password?token=#{token}"
+  end
+
+  def billing_portal_url
+    "#{frontend_url}/dashboard/billing"
   end
 end

@@ -8,6 +8,8 @@ class VoiceSession < ApplicationRecord
 
   scope :active, -> { where.not(status: %w[error]) }
 
+  attribute :status, :string, default: "idle"
+
   before_create :assign_defaults
 
   def active?

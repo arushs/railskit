@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_06_100003) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_06_235904) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "vector"
@@ -43,6 +43,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_06_100003) do
     t.index ["blob_id", "variation_digest"], name: "index_active_storage_variant_records_uniqueness", unique: true
   end
 
+  create_table "article_categories", force: :cascade do |t|
+    t.bigint "article_id", null: false
+    t.bigint "category_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["article_id", "category_id"], name: "index_article_categories_on_article_id_and_category_id", unique: true
+    t.index ["article_id"], name: "index_article_categories_on_article_id"
+    t.index ["category_id"], name: "index_article_categories_on_category_id"
+  end
+
   create_table "article_chunks", force: :cascade do |t|
     t.bigint "article_id", null: false
     t.integer "chunk_index", null: false
@@ -58,12 +68,20 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_06_100003) do
   end
 
   create_table "articles", force: :cascade do |t|
+    t.string "author"
     t.text "body", null: false
     t.datetime "created_at", null: false
+    t.text "excerpt"
+    t.string "featured_image_url"
+    t.string "meta_description"
+    t.string "meta_title"
     t.datetime "published_at"
+    t.integer "reading_time_minutes"
+    t.string "slug"
     t.string "title", null: false
     t.datetime "updated_at", null: false
     t.index ["published_at"], name: "index_articles_on_published_at"
+    t.index ["slug"], name: "index_articles_on_slug", unique: true
   end
 
   create_table "audio_segments", force: :cascade do |t|
@@ -78,6 +96,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_06_100003) do
     t.index ["speaker"], name: "index_audio_segments_on_speaker"
     t.index ["voice_session_id", "sequence_number"], name: "index_audio_segments_on_voice_session_id_and_sequence_number"
     t.index ["voice_session_id"], name: "index_audio_segments_on_voice_session_id"
+  end
+
+  create_table "categories", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.string "name", null: false
+    t.integer "position", default: 0
+    t.string "slug", null: false
+    t.datetime "updated_at", null: false
+    t.index ["position"], name: "index_categories_on_position"
+    t.index ["slug"], name: "index_categories_on_slug", unique: true
   end
 
   create_table "chats", force: :cascade do |t|
@@ -95,11 +124,28 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_06_100003) do
     t.text "content", null: false
     t.datetime "created_at", null: false
     t.bigint "document_id", null: false
+    t.vector "embedding", limit: 1536
+    t.integer "end_offset", default: 0
+    t.jsonb "metadata", default: {}
     t.integer "position", default: 0, null: false
+    t.integer "start_offset", default: 0
     t.integer "token_count", default: 0
     t.datetime "updated_at", null: false
     t.index ["document_id", "position"], name: "index_chunks_on_document_id_and_position"
     t.index ["document_id"], name: "index_chunks_on_document_id"
+  end
+
+  create_table "collections", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.integer "documents_count", default: 0, null: false
+    t.jsonb "metadata", default: {}
+    t.string "name", null: false
+    t.string "slug", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "user_id"
+    t.index ["slug"], name: "index_collections_on_slug", unique: true
+    t.index ["user_id"], name: "index_collections_on_user_id"
   end
 
   create_table "document_collections", force: :cascade do |t|
@@ -115,16 +161,22 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_06_100003) do
   end
 
   create_table "documents", force: :cascade do |t|
+    t.integer "chunk_count", default: 0
+    t.bigint "collection_id", null: false
+    t.text "content"
     t.string "content_type"
     t.datetime "created_at", null: false
-    t.bigint "document_collection_id", null: false
     t.text "error_message"
-    t.string "name", null: false
+    t.string "name"
+    t.text "raw_content"
     t.bigint "size"
+    t.string "source_type"
+    t.string "source_url"
     t.string "status", default: "processing", null: false
+    t.string "title"
     t.datetime "updated_at", null: false
     t.bigint "user_id"
-    t.index ["document_collection_id"], name: "index_documents_on_document_collection_id"
+    t.index ["collection_id"], name: "index_documents_on_collection_id"
     t.index ["status"], name: "index_documents_on_status"
     t.index ["user_id"], name: "index_documents_on_user_id"
   end
@@ -240,13 +292,20 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_06_100003) do
   end
 
   create_table "voice_sessions", force: :cascade do |t|
+    t.string "agent_class", default: "HelpDeskAgent"
     t.string "audio_format", default: "pcm_16000"
-    t.bigint "chat_id", null: false
+    t.bigint "chat_id"
     t.datetime "created_at", null: false
     t.integer "duration"
     t.datetime "ended_at"
-    t.datetime "started_at", null: false
+    t.string "language", default: "en"
+    t.datetime "last_activity_at"
+    t.datetime "started_at"
     t.string "status", default: "active", null: false
+    t.string "stt_provider", default: "openai"
+    t.string "tts_provider", default: "openai"
+    t.string "tts_voice", default: "alloy"
+    t.integer "turn_count", default: 0
     t.datetime "updated_at", null: false
     t.bigint "user_id", null: false
     t.bigint "voice_preset_id"
@@ -258,11 +317,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_06_100003) do
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "article_categories", "articles"
+  add_foreign_key "article_categories", "categories"
   add_foreign_key "article_chunks", "articles"
   add_foreign_key "audio_segments", "voice_sessions"
   add_foreign_key "chats", "users"
   add_foreign_key "chunks", "documents"
-  add_foreign_key "documents", "document_collections"
+  add_foreign_key "collections", "users"
+  add_foreign_key "documents", "collections"
   add_foreign_key "documents", "users"
   add_foreign_key "embeddings", "chunks"
   add_foreign_key "messages", "chats"

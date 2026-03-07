@@ -102,7 +102,7 @@ export function SignInPage() {
 
         <p className="text-center text-sm text-zinc-500">
           Don't have an account?{" "}
-          <Link to="/auth/sign-up" className="text-white hover:underline">Sign up</Link>
+          <Link to="/signup" className="text-white hover:underline">Sign up</Link>
         </p>
       </div>
     </div>

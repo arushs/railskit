@@ -27,7 +27,7 @@ export function OAuthCallbackPage() {
       {error ? (
         <div className="text-center space-y-4">
           <p className="text-red-400">{error}</p>
-          <a href="/auth/sign-in" className="text-zinc-400 hover:text-white text-sm">
+          <a href="/login" className="text-zinc-400 hover:text-white text-sm">
             ← Back to sign in
           </a>
         </div>

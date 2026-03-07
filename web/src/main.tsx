@@ -45,7 +45,14 @@ createRoot(document.getElementById("root")!).render(
               {/* Authenticated routes */}
               <Route element={<AuthGuard />}>
                 <Route element={<DashboardLayout />}>
-                  <Route path="/dashboard" element={<DashboardPage />} />
+                  <Route path="/dashboard" element={<DashboardOverview />} />
+                  <Route path="/dashboard/chats" element={<ChatList />} />
+                  <Route path="/dashboard/chats/:id" element={<ChatView />} />
+                  <Route path="/dashboard/costs" element={<CostTracking />} />
+                  <Route path="/dashboard/tools" element={<ToolUsage />} />
+                  <Route path="/dashboard/knowledge" element={<RAGPage />} />
+                  <Route path="/dashboard/voice" element={<VoicePage />} />
+                  <Route path="/dashboard/workflows" element={<WorkflowsPage />} />
                   <Route path="/dashboard/settings" element={<SettingsPage />} />
                   <Route path="/dashboard/billing" element={<BillingPage />} />
                 </Route>

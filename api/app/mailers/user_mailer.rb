@@ -5,7 +5,7 @@ class UserMailer < ApplicationMailer
   def welcome(user)
     @user     = user
     @app_name = RailsKit.config.app.name
-    @login_url = root_url
+    @login_url = frontend_url
 
     mail(
       to: @user.email,

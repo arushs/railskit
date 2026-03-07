@@ -9,10 +9,10 @@ RSpec.describe EmailProvider do
     allow(RailsKit).to receive(:config).and_return(
       OpenStruct.new(email: email_config, app: OpenStruct.new(name: "TestApp", domain: "test.com"))
     )
-    described_class.reload!
+    EmailProvider.reload!
   end
 
-  after { described_class.reload! }
+  after { EmailProvider.reload! }
 
   describe ".adapter" do
     context "with resend provider" do
@@ -93,9 +93,7 @@ RSpec.describe EmailProvider do
 
     it "reads SMTP config from ENV" do
       allow(ENV).to receive(:fetch).with("SMTP_ADDRESS", "localhost").and_return("mail.example.com")
-      allow(ENV).to receive(:fetch).with("SMTP_PORT", "587").and_return("465")
-      allow(ENV).to receive(:fetch).with("SMTP_USERNAME", "").and_return("user")
-      allow(ENV).to receive(:fetch).with("SMTP_PASSWORD", "").and_return("pass")
+      allow(ENV).to receive(:fetch).with("SMTP_PORT", 587).and_return("465")
       allow(ENV).to receive(:fetch).with("SMTP_DOMAIN", anything).and_return("example.com")
 
       config = adapter.delivery_config
@@ -104,7 +102,8 @@ RSpec.describe EmailProvider do
     end
 
     it "has the correct provider name" do
-      expect(adapter.provider_name).to eq("SMTP")
+      allow(ENV).to receive(:fetch).with("SMTP_ADDRESS", "localhost").and_return("mail.example.com")
+      expect(adapter.provider_name).to eq("SMTP (mail.example.com)")
     end
   end
 end
