@@ -1,0 +1,64 @@
+# frozen_string_literal: true
+
+# Document Intelligence Pipeline Configuration
+#
+# Defines document categories and per-category extraction schemas.
+# Customize these for your use case.
+
+Rails.application.config.document_pipeline = DocumentPipeline::Config.new(
+  # LLM model to use (nil = RubyLLM default)
+  model: nil,
+
+  # Document categories for classification
+  categories: [
+    {
+      name: "invoice",
+      description: "An invoice, bill, or payment request",
+      examples: ["Invoice #12345", "Amount Due", "Bill To"]
+    },
+    {
+      name: "contract",
+      description: "A legal contract or agreement",
+      examples: ["Agreement between", "Terms and Conditions", "Party A and Party B"]
+    },
+    {
+      name: "receipt",
+      description: "A purchase receipt or proof of payment",
+      examples: ["Receipt", "Payment Confirmed", "Transaction ID"]
+    },
+    {
+      name: "report",
+      description: "A report, analysis, or summary document",
+      examples: ["Executive Summary", "Findings", "Quarterly Report"]
+    },
+    {
+      name: "correspondence",
+      description: "A letter, email, or memo",
+      examples: ["Dear", "To Whom It May Concern", "Re:"]
+    }
+  ],
+
+  # Per-category extraction schemas
+  # Each category maps to a list of fields to extract
+  extraction_schemas: {
+    "invoice" => [
+      { field_name: "invoice_number", type: "string", description: "The invoice or bill number", required: true },
+      { field_name: "vendor_name", type: "string", description: "Name of the vendor or seller", required: true },
+      { field_name: "total_amount", type: "number", description: "Total amount due", required: true },
+      { field_name: "due_date", type: "date", description: "Payment due date", required: false },
+      { field_name: "line_items", type: "array", description: "List of line items with description and amount", required: false }
+    ],
+    "contract" => [
+      { field_name: "parties", type: "array", description: "Names of the contracting parties", required: true },
+      { field_name: "effective_date", type: "date", description: "When the contract takes effect", required: true },
+      { field_name: "expiration_date", type: "date", description: "When the contract expires", required: false },
+      { field_name: "governing_law", type: "string", description: "Governing law jurisdiction", required: false }
+    ],
+    "receipt" => [
+      { field_name: "merchant_name", type: "string", description: "Name of the merchant", required: true },
+      { field_name: "total_amount", type: "number", description: "Total amount paid", required: true },
+      { field_name: "payment_method", type: "string", description: "Payment method used", required: false },
+      { field_name: "transaction_date", type: "date", description: "Date of the transaction", required: false }
+    ]
+  }
+)

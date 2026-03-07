@@ -14,4 +14,16 @@ Rails.application.config.after_initialize do
   AgentRouter.register(BillingAgent,
     capabilities: %w[billing payments invoices refunds subscription pricing],
     priority: 1)
+
+  AgentRouter.register(DocumentParserAgent,
+    capabilities: %w[parse extract_text pdf image ocr sections pages],
+    priority: 2)
+
+  AgentRouter.register(DocumentClassifierAgent,
+    capabilities: %w[classify categorize document_type identification],
+    priority: 2)
+
+  AgentRouter.register(DocumentExtractorAgent,
+    capabilities: %w[extract fields data structured invoice contract],
+    priority: 2)
 end

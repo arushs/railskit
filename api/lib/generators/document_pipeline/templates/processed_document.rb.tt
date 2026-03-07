@@ -1,0 +1,41 @@
+# frozen_string_literal: true
+
+class ProcessedDocument < ApplicationRecord
+  belongs_to :document, optional: true
+
+  validates :status, presence: true, inclusion: { in: %w[pending processing completed error] }
+
+  scope :pending, -> { where(status: "pending") }
+  scope :processing, -> { where(status: "processing") }
+  scope :completed, -> { where(status: "completed") }
+  scope :errored, -> { where(status: "error") }
+  scope :by_type, ->(type) { where(document_type: type) }
+
+  def process!(config: nil)
+    config ||= Rails.application.config.document_pipeline
+    update!(status: "processing")
+
+    pipeline = DocumentPipeline.new(config)
+    result = if source_file_path.present?
+               pipeline.process(file_path: source_file_path)
+             elsif document&.raw_content.present?
+               pipeline.process(raw_text: document.raw_content)
+             else
+               raise "No content to process: set source_file_path or associate a Document"
+             end
+
+    update!(
+      status: "completed",
+      full_text: result.dig(:parsed, :full_text),
+      parsed_data: result[:parsed] || {},
+      document_type: result.dig(:classification, :classification),
+      classification_confidence: result.dig(:classification, :confidence),
+      classification_data: result[:classification] || {},
+      extracted_fields: result.dig(:extracted, :fields) || {},
+      processed_at: Time.current
+    )
+  rescue StandardError => e
+    update!(status: "error", error_message: "#{e.class}: #{e.message}")
+    Rails.logger.error("[ProcessedDocument#process!] #{id}: #{e.message}")
+  end
+end
