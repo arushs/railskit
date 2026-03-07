@@ -4,7 +4,7 @@
  * Run: npx tsx scripts/generate-sitemap.ts
  * Output: public/sitemap.xml
  *
- * Add blog posts to the BLOG_POSTS array or wire up to your blog content directory.
+ * Automatically includes all blog posts and category pages.
  */
 
 import { writeFileSync } from "fs";
@@ -14,7 +14,7 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const SITE_URL = "https://railskit.dev";
+const SITE_URL = process.env.SITE_URL || "https://railskit.dev";
 
 interface SitemapEntry {
   loc: string;
@@ -22,6 +22,14 @@ interface SitemapEntry {
   priority: number;
   lastmod?: string;
 }
+
+// Blog posts registry (mirrored — keep in sync with src/content/blog/index.ts)
+const blogSlugs = [
+  { slug: "getting-started", date: "2026-03-04", category: "Guides" },
+  { slug: "why-rails-for-ai", date: "2026-03-04", category: "AI" },
+];
+
+const categories = [...new Set(blogSlugs.map((p) => p.category))];
 
 // Static pages
 const staticPages: SitemapEntry[] = [
@@ -31,21 +39,20 @@ const staticPages: SitemapEntry[] = [
   { loc: "/blog", changefreq: "daily", priority: 0.8 },
 ];
 
-// Blog posts — add dynamically or import from blog content index
-const blogPosts: SitemapEntry[] = [
-  {
-    loc: "/blog/getting-started",
-    changefreq: "monthly",
-    priority: 0.7,
-    lastmod: "2026-03-04",
-  },
-  {
-    loc: "/blog/why-rails-for-ai",
-    changefreq: "monthly",
-    priority: 0.7,
-    lastmod: "2026-03-04",
-  },
-];
+// Category pages
+const categoryPages: SitemapEntry[] = categories.map((cat) => ({
+  loc: `/blog?category=${encodeURIComponent(cat)}`,
+  changefreq: "weekly" as const,
+  priority: 0.6,
+}));
+
+// Blog post pages
+const blogPages: SitemapEntry[] = blogSlugs.map((p) => ({
+  loc: `/blog/${p.slug}`,
+  changefreq: "monthly" as const,
+  priority: 0.7,
+  lastmod: p.date,
+}));
 
 function generateSitemap(entries: SitemapEntry[]): string {
   const urls = entries
@@ -64,8 +71,8 @@ ${urls}
 </urlset>`;
 }
 
-const all = [...staticPages, ...blogPosts];
+const all = [...staticPages, ...categoryPages, ...blogPages];
 const xml = generateSitemap(all);
 const outPath = resolve(__dirname, "../public/sitemap.xml");
 writeFileSync(outPath, xml, "utf-8");
-console.log(`✅ Sitemap generated: ${outPath} (${all.length} URLs)`);
+console.log(`✅ Sitemap generated: ${outPath} (${all.length} URLs — ${staticPages.length} static, ${categoryPages.length} categories, ${blogPages.length} posts)`);

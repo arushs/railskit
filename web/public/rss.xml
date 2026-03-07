@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>RailsKit Blog</title>
+    <link>https://railskit.dev/blog</link>
+    <description>Guides, tutorials, and insights on building AI-powered Rails applications.</description>
+    <language>en</language>
+    <lastBuildDate>Sat, 07 Mar 2026 04:15:51 GMT</lastBuildDate>
+    <atom:link href="https://railskit.dev/rss.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Getting Started with RailsKit</title>
+      <link>https://railskit.dev/blog/getting-started</link>
+      <guid isPermaLink="true">https://railskit.dev/blog/getting-started</guid>
+      <description>A quick guide to setting up RailsKit and shipping your first AI-powered Rails app.</description>
+      <pubDate>Wed, 04 Mar 2026 00:00:00 GMT</pubDate>
+      <author>RailsKit Team</author>
+      <category>Guides</category>
+      <category>guide</category>
+      <category>quickstart</category>
+    </item>
+    <item>
+      <title>Why Rails is Perfect for AI Applications</title>
+      <link>https://railskit.dev/blog/why-rails-for-ai</link>
+      <guid isPermaLink="true">https://railskit.dev/blog/why-rails-for-ai</guid>
+      <description>Rails brings rapid full-stack development to the AI ecosystem. Here&apos;s why it matters.</description>
+      <pubDate>Wed, 04 Mar 2026 00:00:00 GMT</pubDate>
+      <author>RailsKit Team</author>
+      <category>AI</category>
+      <category>opinion</category>
+      <category>rails</category>
+      <category>ai</category>
+    </item>
+  </channel>
+</rss>
