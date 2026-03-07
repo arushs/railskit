@@ -190,6 +190,28 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_06_235904) do
     t.index ["chunk_id"], name: "index_embeddings_on_chunk_id", unique: true
   end
 
+  create_table "engagements", force: :cascade do |t|
+    t.string "accountant_email"
+    t.jsonb "checklist", default: [], null: false
+    t.string "client_email", null: false
+    t.string "client_name", null: false
+    t.string "client_phone"
+    t.datetime "created_at", null: false
+    t.jsonb "documents", default: [], null: false
+    t.jsonb "intake_data", default: {}, null: false
+    t.text "prep_brief"
+    t.jsonb "reconciliation", default: {}, null: false
+    t.string "status", default: "pending", null: false
+    t.string "storage_folder_url"
+    t.string "typeform_id"
+    t.datetime "updated_at", null: false
+    t.bigint "user_id", null: false
+    t.index ["status"], name: "index_engagements_on_status"
+    t.index ["typeform_id"], name: "index_engagements_on_typeform_id", unique: true, where: "(typeform_id IS NOT NULL)"
+    t.index ["user_id", "status"], name: "index_engagements_on_user_id_and_status"
+    t.index ["user_id"], name: "index_engagements_on_user_id"
+  end
+
   create_table "jwt_denylists", force: :cascade do |t|
     t.datetime "exp", null: false
     t.string "jti", null: false
@@ -255,16 +277,25 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_06_235904) do
 
   create_table "users", force: :cascade do |t|
     t.string "avatar_url"
+    t.datetime "confirmation_sent_at"
+    t.string "confirmation_token"
+    t.datetime "confirmed_at"
+    t.integer "consumed_timestep"
     t.datetime "created_at", null: false
     t.datetime "current_sign_in_at"
     t.string "current_sign_in_ip"
     t.string "email", default: "", null: false
     t.string "encrypted_password", default: "", null: false
+    t.integer "failed_attempts", default: 0, null: false
     t.datetime "last_sign_in_at"
     t.string "last_sign_in_ip"
+    t.datetime "locked_at"
     t.datetime "magic_link_sent_at"
     t.string "magic_link_token"
     t.string "name"
+    t.text "otp_backup_codes", array: true
+    t.boolean "otp_required_for_login", default: false, null: false
+    t.string "otp_secret"
     t.string "plan", default: "free", null: false
     t.string "provider"
     t.datetime "remember_created_at"
@@ -272,11 +303,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_06_235904) do
     t.string "reset_password_token"
     t.integer "sign_in_count", default: 0, null: false
     t.string "uid"
+    t.string "unconfirmed_email"
+    t.string "unlock_token"
     t.datetime "updated_at", null: false
+    t.index ["confirmation_token"], name: "index_users_on_confirmation_token", unique: true
     t.index ["email"], name: "index_users_on_email", unique: true
     t.index ["magic_link_token"], name: "index_users_on_magic_link_token", unique: true
     t.index ["provider", "uid"], name: "index_users_on_provider_and_uid", unique: true
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
+    t.index ["unlock_token"], name: "index_users_on_unlock_token", unique: true
   end
 
   create_table "voice_presets", force: :cascade do |t|
@@ -327,6 +362,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_06_235904) do
   add_foreign_key "documents", "collections"
   add_foreign_key "documents", "users"
   add_foreign_key "embeddings", "chunks"
+  add_foreign_key "engagements", "users"
   add_foreign_key "messages", "chats"
   add_foreign_key "subscriptions", "plans"
   add_foreign_key "subscriptions", "users"

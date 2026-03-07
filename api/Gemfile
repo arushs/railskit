@@ -38,6 +38,7 @@ gem "rack-cors"
 # Authentication
 gem "devise", "~> 4.9"
 gem "devise-jwt", "~> 0.12"
+gem "devise-two-factor", "~> 6.0"
 gem "omniauth-google-oauth2", "~> 1.2"
 gem "omniauth-rails_csrf_protection", "~> 1.0"
 

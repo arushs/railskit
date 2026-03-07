@@ -10,13 +10,21 @@ module Api
 
       def respond_with(resource, _opts = {})
         if resource.persisted?
-          token = request.env["warden-jwt_auth.token"]
-          set_jwt_cookie(token) if token
+          if resource.confirmed? || !resource.confirmation_required?
+            token = request.env["warden-jwt_auth.token"]
+            set_jwt_cookie(token) if token
 
-          render json: {
-            user: user_json(resource),
-            token: token
-          }, status: :created
+            render json: {
+              user: user_json(resource),
+              token: token
+            }, status: :created
+          else
+            render json: {
+              user: user_json(resource),
+              message: "A confirmation email has been sent to #{resource.email}",
+              confirmation_required: true
+            }, status: :created
+          end
         else
           render json: {
             error: "Sign up failed",

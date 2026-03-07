@@ -9,6 +9,11 @@ auth:
   provider: "devise"  # devise | supabase | clerk
   google_oauth: true
   magic_links: true
+  two_factor: true                    # Enable TOTP 2FA
+  require_email_confirmation: true    # Require email confirmation
+  account_locking: true               # Lock after failed attempts
+  max_failed_attempts: 10
+  unlock_in_hours: 1
 
 payments:
   provider: "stripe"  # stripe | lemon_squeezy

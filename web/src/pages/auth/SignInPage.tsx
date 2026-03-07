@@ -21,7 +21,11 @@ export function SignInPage() {
     const result = await signIn(email, password);
     setLoading(false);
     if (result.ok) {
-      navigate("/dashboard");
+      if (result.requires2fa) {
+        navigate("/auth/two-factor");
+      } else {
+        navigate("/dashboard");
+      }
     } else {
       setError(result.error || "Sign in failed");
     }
