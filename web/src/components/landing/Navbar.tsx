@@ -1,18 +1,9 @@
 import { useState } from "react";
 
-/**
- * Navbar — Sticky top nav with mobile hamburger.
- *
- * Copywriting tips:
- * - Keep nav items to 4-5 max. More = decision fatigue.
- * - CTA button should use action verb: "Get Started" > "Sign Up"
- * - Logo text doubles as brand reinforcement — make it memorable.
- */
-
 const NAV_LINKS = [
   { label: "Features", href: "#features" },
   { label: "Pricing", href: "#pricing" },
-  { label: "FAQ", href: "#faq" },
+  { label: "Blog", href: "/blog" },
   { label: "Docs", href: "/docs" },
 ];
 
@@ -20,24 +11,36 @@ export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-zinc-950/80 backdrop-blur-xl border-b border-zinc-800/50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+    <nav className="fixed top-0 left-0 right-0 z-50">
+      <div className="mx-auto max-w-6xl px-6">
+        <div className="flex items-center justify-between h-16 border-b border-white/[0.06]">
           {/* Logo */}
-          <a href="/" className="flex items-center gap-2 group">
-            <span className="text-2xl">🚀</span>
-            <span className="text-xl font-bold text-white group-hover:text-indigo-400 transition-colors">
+          <a href="/" className="flex items-center gap-2.5 group">
+            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center">
+              <svg
+                className="w-4 h-4 text-white"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+              </svg>
+            </div>
+            <span className="text-[15px] font-semibold text-white tracking-tight">
               RailsKit
             </span>
           </a>
 
-          {/* Desktop nav */}
-          <div className="hidden md:flex items-center gap-8">
+          {/* Desktop */}
+          <div className="hidden md:flex items-center gap-1">
             {NAV_LINKS.map((link) => (
               <a
                 key={link.href}
                 href={link.href}
-                className="text-sm text-zinc-400 hover:text-white transition-colors"
+                className="px-3 py-1.5 text-[13px] text-zinc-400 hover:text-white transition-colors rounded-lg"
               >
                 {link.label}
               </a>
@@ -46,56 +49,67 @@ export default function Navbar() {
               href="https://github.com/arushs/railskit"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-sm text-zinc-400 hover:text-white transition-colors"
+              className="px-3 py-1.5 text-[13px] text-zinc-400 hover:text-white transition-colors rounded-lg"
             >
               GitHub
             </a>
+          </div>
+
+          <div className="hidden md:flex items-center gap-3">
+            <a
+              href="/auth/sign-in"
+              className="text-[13px] text-zinc-400 hover:text-white transition-colors"
+            >
+              Log in
+            </a>
             <a
               href="#pricing"
-              className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg transition-colors"
+              className="px-4 py-1.5 text-[13px] font-medium text-white bg-white/10 hover:bg-white/15 rounded-lg border border-white/10 transition-colors"
             >
               Get Started
             </a>
           </div>
 
-          {/* Mobile hamburger */}
+          {/* Mobile */}
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
-            className="md:hidden p-2 text-zinc-400 hover:text-white"
-            aria-label="Toggle menu"
+            className="md:hidden p-2 text-zinc-400"
+            aria-label="Menu"
           >
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               {mobileOpen ? (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
               ) : (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" />
               )}
             </svg>
           </button>
         </div>
       </div>
 
-      {/* Mobile menu */}
+      {/* Mobile dropdown */}
       {mobileOpen && (
-        <div className="md:hidden border-t border-zinc-800/50 bg-zinc-950/95 backdrop-blur-xl">
-          <div className="px-4 py-4 space-y-3">
+        <div className="md:hidden bg-zinc-950/95 backdrop-blur-xl border-b border-white/[0.06]">
+          <div className="px-6 py-4 space-y-1">
             {NAV_LINKS.map((link) => (
               <a
                 key={link.href}
                 href={link.href}
                 onClick={() => setMobileOpen(false)}
-                className="block text-sm text-zinc-400 hover:text-white transition-colors py-2"
+                className="block py-2 text-[14px] text-zinc-400 hover:text-white"
               >
                 {link.label}
               </a>
             ))}
-            <a
-              href="#pricing"
-              onClick={() => setMobileOpen(false)}
-              className="block w-full text-center px-4 py-2.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg transition-colors mt-4"
-            >
-              Get Started
-            </a>
+            <div className="pt-3 mt-3 border-t border-white/[0.06]">
+              <a
+                href="#pricing"
+                onClick={() => setMobileOpen(false)}
+                className="block w-full text-center py-2.5 text-[13px] font-medium text-white bg-white/10 rounded-lg"
+              >
+                Get Started
+              </a>
+            </div>
           </div>
         </div>
       )}

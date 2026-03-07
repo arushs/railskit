@@ -1,75 +1,74 @@
-/**
- * Problem/Solution — Agitate the pain, then present the cure.
- *
- * Copywriting tips:
- * - Left side: make them FEEL the pain. Use specific, relatable frustrations.
- * - Right side: mirror each pain point with a concrete solution.
- * - "Before/After" framing is incredibly persuasive.
- * - Keep each bullet to one line — scannable > readable.
- */
-
-const PAIN_POINTS = [
-  { icon: "⏰", text: "2 weeks wiring auth, payments, and deploy before writing a line of product code" },
-  { icon: "🔧", text: "Gluing together 15 different tutorials that each assume a different setup" },
-  { icon: "🤯", text: "Fighting CORS, proxy configs, and TypeScript mismatches between frontend and API" },
-  { icon: "💸", text: "Paying $200+/month for a SaaS boilerplate that locks you into their stack" },
+const PAIN = [
+  "2 weeks wiring auth, payments, and deploy before writing product code",
+  "Gluing together 15 tutorials that each assume a different setup",
+  "Fighting CORS, proxy configs, and TypeScript mismatches",
+  "Paying $200+/month for a SaaS boilerplate that locks you in",
 ];
 
-const SOLUTIONS = [
-  { icon: "⚡", text: "Run bin/setup → full-stack app with auth, billing, and CI in under 2 minutes" },
-  { icon: "📦", text: "One cohesive monorepo. Rails 8 API + React 19 + Vite. All pre-wired." },
-  { icon: "✅", text: "Proxy, CORS, types, and env configs already handled. It just works." },
-  { icon: "🆓", text: "Open source, MIT licensed. Fork it, own it, never pay rent on your stack." },
+const CURE = [
+  "bin/setup → full-stack app with auth, billing, and CI in 2 minutes",
+  "One monorepo. Rails 8 API + React 19 + Vite. All pre-wired.",
+  "Proxy, CORS, types, and env configs already handled",
+  "Open source, MIT licensed. Fork it, own it, never pay rent",
 ];
 
 export default function ProblemSolution() {
   return (
-    <section className="py-20 sm:py-28 bg-zinc-950">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <section className="py-24 sm:py-32 border-t border-white/[0.04]">
+      <div className="max-w-6xl mx-auto px-6">
         <div className="text-center mb-16">
-          <h2 className="text-3xl sm:text-4xl font-bold text-white">
+          <h2 className="text-3xl sm:text-4xl font-bold text-white tracking-tight">
             Sound familiar?
           </h2>
-          <p className="mt-4 text-zinc-400 text-lg max-w-2xl mx-auto">
+          <p className="mt-4 text-zinc-400 text-[17px] max-w-lg mx-auto">
             Every Rails + React project starts with the same yak-shaving.
-            We did it once so you never have to again.
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-8 lg:gap-16">
-          {/* Pain */}
-          <div className="space-y-4">
-            <div className="inline-flex items-center gap-2 text-sm font-medium text-red-400 mb-2">
-              <span className="w-2 h-2 rounded-full bg-red-400" />
-              Without RailsKit
+        <div className="grid md:grid-cols-2 gap-6 lg:gap-10 max-w-4xl mx-auto">
+          {/* Without */}
+          <div>
+            <div className="flex items-center gap-2 mb-5">
+              <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+              <span className="text-[13px] font-medium text-red-400 tracking-wide">
+                Without RailsKit
+              </span>
             </div>
-            <div className="space-y-3">
-              {PAIN_POINTS.map((p, i) => (
+            <div className="space-y-2.5">
+              {PAIN.map((p, i) => (
                 <div
                   key={i}
-                  className="flex items-start gap-3 p-4 rounded-xl bg-red-500/5 border border-red-500/10"
+                  className="flex items-start gap-3 p-4 rounded-xl border border-red-500/[0.08] bg-red-500/[0.03]"
                 >
-                  <span className="text-xl flex-shrink-0 mt-0.5">{p.icon}</span>
-                  <p className="text-zinc-300 text-sm leading-relaxed">{p.text}</p>
+                  <svg className="w-4 h-4 text-red-400/60 mt-0.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="15" y1="9" x2="9" y2="15" />
+                    <line x1="9" y1="9" x2="15" y2="15" />
+                  </svg>
+                  <p className="text-[13px] text-zinc-400 leading-relaxed">{p}</p>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Solution */}
-          <div className="space-y-4">
-            <div className="inline-flex items-center gap-2 text-sm font-medium text-green-400 mb-2">
-              <span className="w-2 h-2 rounded-full bg-green-400" />
-              With RailsKit
+          {/* With */}
+          <div>
+            <div className="flex items-center gap-2 mb-5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+              <span className="text-[13px] font-medium text-emerald-400 tracking-wide">
+                With RailsKit
+              </span>
             </div>
-            <div className="space-y-3">
-              {SOLUTIONS.map((s, i) => (
+            <div className="space-y-2.5">
+              {CURE.map((s, i) => (
                 <div
                   key={i}
-                  className="flex items-start gap-3 p-4 rounded-xl bg-green-500/5 border border-green-500/10"
+                  className="flex items-start gap-3 p-4 rounded-xl border border-emerald-500/[0.08] bg-emerald-500/[0.03]"
                 >
-                  <span className="text-xl flex-shrink-0 mt-0.5">{s.icon}</span>
-                  <p className="text-zinc-300 text-sm leading-relaxed">{s.text}</p>
+                  <svg className="w-4 h-4 text-emerald-400/60 mt-0.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M20 6L9 17l-5-5" />
+                  </svg>
+                  <p className="text-[13px] text-zinc-400 leading-relaxed">{s}</p>
                 </div>
               ))}
             </div>

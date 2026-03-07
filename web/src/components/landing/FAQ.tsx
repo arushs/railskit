@@ -1,15 +1,3 @@
-/**
- * FAQ — Overcome objections before they become reasons to leave.
- *
- * Copywriting tips:
- * - Write questions the way a BUYER would ask them, not a developer.
- *   "Can I use my own database?" > "Database compatibility matrix"
- * - Address the top 5-7 objections. More = clutter.
- * - First question should be the most common one.
- * - Answers should be 1-3 sentences. Link to docs for details.
- * - End with a "Still have questions?" CTA.
- */
-
 import {
   Accordion,
   AccordionItem,
@@ -20,7 +8,7 @@ import {
 const FAQS = [
   {
     q: "Is this really free?",
-    a: "The Starter tier is completely free and open source under MIT License. You get the full monorepo scaffold, Rails 8 API, React frontend, and Docker configs. Pro and Team add premium features like auth, payments, and admin dashboards.",
+    a: "The Starter tier is completely free and open source under MIT License. You get the full monorepo scaffold. Pro and Team add premium features like auth, payments, and admin dashboards.",
   },
   {
     q: "What Ruby and Node versions do I need?",
@@ -28,46 +16,44 @@ const FAQS = [
   },
   {
     q: "Can I use a different database?",
-    a: "PostgreSQL is the default and recommended choice. Rails supports MySQL and SQLite out of the box — you'd just update database.yml and the Docker config. But we optimize for Postgres.",
+    a: "PostgreSQL is the default and recommended. Rails supports MySQL and SQLite — you'd just update database.yml and the Docker config.",
   },
   {
     q: "How do I deploy this?",
-    a: "Anywhere that runs Docker. We include configs for Render, Fly.io, and Railway out of the box. The Dockerfiles are production-optimized with multi-stage builds.",
+    a: "Anywhere that runs Docker. We include configs for Render, Fly.io, and Railway out of the box with production-optimized multi-stage builds.",
   },
   {
-    q: "Can I use this for a commercial product?",
-    a: "Absolutely. MIT License means you can use it for anything — personal projects, SaaS products, client work. No attribution required (but appreciated!).",
+    q: "Can I use this for commercial products?",
+    a: "Absolutely. MIT License — personal projects, SaaS products, client work. No attribution required.",
   },
   {
     q: "Do I get updates?",
-    a: "Starter gets community updates via GitHub. Pro and Team get priority updates and migration guides when Rails or React ship major versions.",
-  },
-  {
-    q: "What if I need help?",
-    a: "Starter users can use GitHub Discussions. Pro gets priority email support. Team gets a dedicated Slack channel with the maintainers.",
+    a: "Starter gets community updates via GitHub. Pro and Team get priority updates and migration guides for major Rails/React versions.",
   },
 ];
 
 export default function FAQ() {
   return (
-    <section id="faq" className="py-20 sm:py-28 bg-zinc-900/50">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+    <section id="faq" className="py-24 sm:py-32 border-t border-white/[0.04]">
+      <div className="max-w-2xl mx-auto px-6">
         <div className="text-center mb-12">
-          <h2 className="text-3xl sm:text-4xl font-bold text-white">
-            Frequently asked questions
-          </h2>
-          <p className="mt-4 text-zinc-400 text-lg">
-            Everything you need to know before getting started.
+          <p className="text-[13px] font-medium text-indigo-400 tracking-wide uppercase mb-3">
+            FAQ
           </p>
+          <h2 className="text-3xl sm:text-4xl font-bold text-white tracking-tight">
+            Common questions
+          </h2>
         </div>
 
-        <div className="bg-zinc-900 rounded-2xl border border-zinc-800 px-6">
+        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] px-6">
           <Accordion type="single" collapsible defaultValue="item-0">
             {FAQS.map((faq, i) => (
               <AccordionItem key={i} value={`item-${i}`}>
-                <AccordionTrigger>{faq.q}</AccordionTrigger>
+                <AccordionTrigger className="text-[14px] text-white hover:text-indigo-400">
+                  {faq.q}
+                </AccordionTrigger>
                 <AccordionContent>
-                  <p className="text-sm text-zinc-400 leading-relaxed">
+                  <p className="text-[13px] text-zinc-400 leading-relaxed pb-1">
                     {faq.a}
                   </p>
                 </AccordionContent>
@@ -76,24 +62,15 @@ export default function FAQ() {
           </Accordion>
         </div>
 
-        {/* Still have questions CTA */}
-        <div className="text-center mt-10">
-          <p className="text-zinc-400 text-sm">
+        <div className="text-center mt-8">
+          <p className="text-[13px] text-zinc-500">
             Still have questions?{" "}
             <a
               href="mailto:hello@railskit.dev"
               className="text-indigo-400 hover:text-indigo-300 underline underline-offset-2"
             >
               Reach out
-            </a>{" "}
-            or check the{" "}
-            <a
-              href="/docs"
-              className="text-indigo-400 hover:text-indigo-300 underline underline-offset-2"
-            >
-              docs
             </a>
-            .
           </p>
         </div>
       </div>
