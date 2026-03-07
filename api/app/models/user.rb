@@ -10,6 +10,11 @@ class User < ApplicationRecord
          omniauth_providers: [:google_oauth2]
 
   has_many :chats, dependent: :destroy
+  has_many :collections, dependent: :destroy
+  has_many :voice_sessions, dependent: :destroy
+  has_many :memberships, dependent: :destroy
+  has_many :teams, through: :memberships
+  has_many :owned_teams, class_name: "Team", foreign_key: :owner_id, dependent: :destroy
 
   validates :plan, inclusion: { in: %w[free starter pro enterprise] }
 
