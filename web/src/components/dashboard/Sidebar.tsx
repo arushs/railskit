@@ -5,6 +5,7 @@ import {
   CreditCard,
   LogOut,
   X,
+  ShieldCheck,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Avatar } from "@/components/ui/avatar";
@@ -12,11 +13,13 @@ import DarkModeToggle from "./DarkModeToggle";
 import config from "@/config";
 import { cn } from "@/lib/utils";
 
-const navItems = [
+const baseNavItems = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/dashboard/settings", icon: Settings, label: "Settings" },
   { to: "/dashboard/billing", icon: CreditCard, label: "Billing" },
 ];
+
+const adminNavItem = { to: "/admin", icon: ShieldCheck, label: "Admin" };
 
 interface SidebarProps {
   open: boolean;
@@ -25,6 +28,9 @@ interface SidebarProps {
 
 export default function Sidebar({ open, onClose }: SidebarProps) {
   const { user, signOut } = useAuth();
+  const navItems = user?.admin
+    ? [...baseNavItems, adminNavItem]
+    : baseNavItems;
 
   return (
     <>

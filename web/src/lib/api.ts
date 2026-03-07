@@ -48,6 +48,7 @@ export interface User {
   name: string | null;
   avatar_url: string | null;
   plan: string;
+  admin?: boolean;
   created_at: string;
 }
 

@@ -7,31 +7,13 @@ module Api
 
       # GET /api/auth/me — get current user profile
       def show
-        render json: {
-          user: {
-            id: current_user.id,
-            email: current_user.email,
-            name: current_user.name,
-            avatar_url: current_user.avatar_url,
-            plan: current_user.plan,
-            created_at: current_user.created_at
-          }
-        }
+        render json: { user: user_json(current_user) }
       end
 
       # PATCH /api/auth/me — update profile
       def update
         if current_user.update(profile_params)
-          render json: {
-            user: {
-              id: current_user.id,
-              email: current_user.email,
-              name: current_user.name,
-              avatar_url: current_user.avatar_url,
-              plan: current_user.plan,
-              created_at: current_user.created_at
-            }
-          }
+          render json: { user: user_json(current_user) }
         else
           render_unprocessable(current_user)
         end
@@ -41,6 +23,18 @@ module Api
 
       def profile_params
         params.require(:user).permit(:name, :avatar_url)
+      end
+
+      def user_json(user)
+        {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          avatar_url: user.avatar_url,
+          plan: user.plan,
+          admin: user.respond_to?(:admin) ? user.admin : false,
+          created_at: user.created_at,
+        }
       end
     end
   end
