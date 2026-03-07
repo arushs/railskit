@@ -50,7 +50,6 @@ module Api
     def update_user
       user = User.find(params[:id])
 
-      # Prevent removing own admin
       if user == current_user && params[:admin] == false
         return render json: { error: "Cannot remove your own admin access" }, status: :forbidden
       end
@@ -91,22 +90,19 @@ module Api
       teams = scope.limit(per).offset(offset)
 
       render json: {
-        teams: teams.map { |t|
-          {
-            id: t.id,
-            name: t.name,
-            slug: t.slug,
-            personal: t.personal,
-            owner: { id: t.owner.id, name: t.owner.name, email: t.owner.email },
-            member_count: t.memberships.size,
-            created_at: t.created_at.iso8601,
-          }
-        },
+        teams: teams.map { |t| team_json(t) },
         total: total,
         page: page,
         per: per,
         pages: (total.to_f / per).ceil,
       }
+    end
+
+    # DELETE /api/admin/teams/:id
+    def destroy_team
+      team = Team.find(params[:id])
+      team.destroy
+      head :no_content
     end
 
     # GET /api/admin/queues
@@ -120,15 +116,94 @@ module Api
           scheduled: SolidQueue::ScheduledExecution.count,
           failed: SolidQueue::FailedExecution.count,
         },
-        recent_jobs: jobs.map { |j|
+        recent_jobs: jobs.map { |j| job_json(j) },
+      }
+    end
+
+    # POST /api/admin/queues/:id/retry
+    def retry_job
+      failed = SolidQueue::FailedExecution.find_by!(job_id: params[:id])
+      failed.retry
+      head :no_content
+    end
+
+    # POST /api/admin/queues/:id/discard
+    def discard_job
+      failed = SolidQueue::FailedExecution.find_by!(job_id: params[:id])
+      failed.discard
+      head :no_content
+    end
+
+    # POST /api/admin/queues/bulk_retry
+    def bulk_retry
+      ids = Array(params[:job_ids]).map(&:to_i)
+      SolidQueue::FailedExecution.where(job_id: ids).each(&:retry)
+      render json: { retried: ids.size }
+    end
+
+    # POST /api/admin/queues/bulk_discard
+    def bulk_discard
+      ids = Array(params[:job_ids]).map(&:to_i)
+      SolidQueue::FailedExecution.where(job_id: ids).each(&:discard)
+      render json: { discarded: ids.size }
+    end
+
+    # GET /api/admin/pghero
+    def pghero
+      render json: {
+        database_size: PgHero.database_size,
+        running_queries: PgHero.running_queries.map { |q|
           {
-            id: j.id,
-            class_name: j.class_name,
-            queue_name: j.queue_name,
-            created_at: j.created_at.iso8601,
-            finished_at: j.finished_at&.iso8601,
+            pid: q[:pid],
+            duration_ms: q[:duration_ms]&.round(1),
+            query: q[:query]&.truncate(200),
+            state: q[:state],
+            source: q[:source],
           }
         },
+        long_running_queries: PgHero.long_running_queries.map { |q|
+          {
+            pid: q[:pid],
+            duration_ms: q[:duration_ms]&.round(1),
+            query: q[:query]&.truncate(200),
+          }
+        },
+        index_usage: PgHero.index_usage.first(20).map { |idx|
+          {
+            table: idx[:table],
+            index_usage: idx[:index_usage],
+            rows: idx[:estimated_rows],
+          }
+        },
+        unused_indexes: PgHero.unused_indexes.first(20).map { |idx|
+          {
+            table: idx[:table],
+            index: idx[:index],
+            index_size: idx[:index_size],
+          }
+        },
+        missing_indexes: PgHero.missing_indexes.first(10).map { |idx|
+          {
+            table: idx[:table],
+            columns: idx[:columns],
+            estimated_rows: idx[:estimated_rows],
+          }
+        },
+        duplicate_indexes: PgHero.duplicate_indexes.first(10).map { |dup|
+          {
+            table: dup[:table],
+            indexes: dup[:indexes],
+          }
+        },
+        table_stats: PgHero.table_stats.first(20).map { |t|
+          {
+            table: t[:table],
+            estimated_rows: t[:estimated_rows],
+            size: t[:size],
+          }
+        },
+        cache_hit_rate: PgHero.cache_hit_rate,
+        connections: PgHero.connections,
       }
     end
 
@@ -152,6 +227,40 @@ module Api
         last_sign_in_at: user.last_sign_in_at&.iso8601,
         created_at: user.created_at.iso8601,
       }
+    end
+
+    def team_json(team)
+      {
+        id: team.id,
+        name: team.name,
+        slug: team.slug,
+        personal: team.personal,
+        owner: { id: team.owner.id, name: team.owner.name, email: team.owner.email },
+        member_count: team.memberships.size,
+        created_at: team.created_at.iso8601,
+      }
+    end
+
+    def job_json(job)
+      failed = job.failed_execution
+      {
+        id: job.id,
+        class_name: job.class_name,
+        queue_name: job.queue_name,
+        status: job_status(job),
+        error: failed&.error&.truncate(200),
+        created_at: job.created_at.iso8601,
+        finished_at: job.finished_at&.iso8601,
+      }
+    end
+
+    def job_status(job)
+      return "failed" if job.failed_execution.present?
+      return "completed" if job.finished_at.present?
+      return "scheduled" if job.scheduled_execution.present?
+      return "ready" if job.ready_execution.present?
+
+      "pending"
     end
   end
 end
